@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0d12">
+<title>ALDEVARA ― 中世都市経営シミュレーション</title>
+<style>
+/* ALDEVARA - Medieval City Simulator (landscape 16:9, mobile friendly) */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d12; }
+body {
+  font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans CJK SC", "Yu Gothic UI", Meiryo, sans-serif;
+  color: #e8dcc0; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+#stage { position: fixed; inset: 0; background: radial-gradient(120% 120% at 50% 0%, #1a2030 0%, #0b0d12 70%); }
+#app {
+  position: absolute; left: 50%; top: 50%; width: 960px; height: 540px;
+  transform-origin: center center; overflow: hidden;
+  background: #141824; box-shadow: 0 0 60px #000;
+}
+section.screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+section.screen.on { display: flex; }
+
+/* ---------- rotate hint (portrait handled by auto-rotate in fit(); hidden) ---------- */
+#rotate { display: none !important; }
+
+/* ---------- common ---------- */
+.btn {
+  border: 1px solid #6b5426; border-radius: 8px; cursor: pointer; color: #f4e9c8;
+  background: linear-gradient(#4a3b1e, #332814); padding: 8px 16px; font-size: 14px; font-weight: 600;
+  text-shadow: 0 1px 2px #000; box-shadow: 0 2px 0 #1c1509, inset 0 1px 0 #7a6230;
+}
+.btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #1c1509; }
+.btn.prime { background: linear-gradient(#8a6a26, #5e4718); border-color: #a5813a; font-size: 16px; }
+.btn.mini { padding: 4px 9px; font-size: 12px; }
+.btn.danger { background: linear-gradient(#5e2622, #3c1815); border-color: #7c3a33; }
+.btn.on2 { outline: 2px solid #d9a441; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+h1,h2,h3 { font-weight: 800; }
+.panel { background: rgba(10,12,18,.78); border: 1px solid #3a4254; }
+.ptitle { font-size: 12px; color: #d9a441; letter-spacing: 1px; margin-bottom: 4px; font-weight: 800; }
+
+/* ---------- title ---------- */
+#screen-title { align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(90% 120% at 50% 115%, #3d3118 0%, transparent 60%),
+              radial-gradient(120% 120% at 50% -20%, #232c44 0%, #0b0d12 75%); }
+#screen-title .crest { font-size: 54px; filter: drop-shadow(0 4px 8px #000); }
+#title-logo { font-size: 64px; letter-spacing: 12px; font-weight: 900; color: #e7c66b;
+  text-shadow: 0 0 24px #a97b2a88, 0 4px 0 #5c451a, 0 6px 12px #000; }
+#title-sub { font-size: 15px; letter-spacing: 4px; color: #cbb87f; margin-bottom: 22px; }
+#title-btns { display: flex; flex-direction: column; gap: 10px; width: 300px; }
+#title-btns .btn { width: 100%; }
+#title-bottom { position: absolute; bottom: 10px; left: 0; right: 0; display: flex;
+  justify-content: center; gap: 8px; font-size: 11px; color: #8a7a55; }
+
+/* ---------- stages ---------- */
+#screen-stages { padding: 14px; gap: 10px; }
+#stages-head { display: flex; align-items: center; gap: 12px; }
+#stages-head h2 { color: #e7c66b; letter-spacing: 2px; }
+#stages-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; padding: 2px; }
+.scard { border: 1px solid #4a3d5f; border-radius: 10px; padding: 8px 9px; cursor: pointer;
+  background: linear-gradient(#242b3d, #191e2b); display: flex; flex-direction: column; gap: 3px; min-height: 108px; }
+.scard:active { transform: scale(.98); }
+.scard.locked { filter: grayscale(1) brightness(.55); }
+.scard .no { font-size: 10px; color: #8f9cb5; letter-spacing: 1px; }
+.scard .nm { font-size: 14px; font-weight: 800; color: #f0dfae; }
+.scard .ds { font-size: 10.5px; color: #a7b3c9; line-height: 1.45; flex: 1; }
+.scard .st { color: #f2c14b; font-size: 12px; letter-spacing: 2px; }
+.scard .bd { font-size: 10px; color: #7fd18a; }
+
+/* ---------- game ---------- */
+#screen-game { }
+#hud { height: 46px; display: flex; align-items: center; gap: 6px; padding: 0 8px;
+  background: linear-gradient(#1d2231, #141824); border-bottom: 1px solid #333a4a; }
+#hud .sp { flex: 1; }
+#hud-stage { font-size: 13px; font-weight: 800; color: #f0dfae; max-width: 150px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hud-day { font-size: 12px; color: #9fb0cc; min-width: 74px; text-align: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: #101521; border: 1px solid #2e3749;
+  border-radius: 20px; padding: 3px 9px; font-size: 12px; font-weight: 700; color: #dfe6f2; white-space: nowrap; }
+.chip .ic { font-size: 12px; }
+.chip b { color: #fff; font-weight: 800; }
+.chip .cap { color: #6c7a92; font-weight: 400; font-size: 10px; }
+.chip.warn b { color: #ff9d7a; }
+#hud-right { display: flex; align-items: center; gap: 4px; }
+#hud-right .btn { padding: 4px 8px; font-size: 12px; }
+
+#game-mid { flex: 1; display: flex; min-height: 0; }
+#buildpanel { width: 172px; padding: 8px; background: #111621; border-right: 1px solid #2c3447;
+  display: flex; flex-direction: column; overflow: hidden; }
+#build-hint { font-size: 9.5px; color: #7d8aa3; margin-bottom: 6px; line-height: 1.4; }
+#build-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding-right: 3px; }
+.bitem { border: 1px solid #33405a; border-radius: 8px; background: #182031; padding: 5px 7px; cursor: pointer; }
+.bitem.sel { border-color: #d9a441; background: #2b241c; outline: 1px solid #d9a441; }
+.bitem.noaf { opacity: .45; }
+.bitem .r1 { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #eee3c4; }
+.bitem .r1 .em { font-size: 15px; }
+.bitem .r2 { font-size: 10.5px; color: #9fb0cc; margin-top: 2px; padding-left: 21px; }
+
+#cvwrap { flex: 1; position: relative; min-width: 0; background: #0e1320; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: none;
+  background: rgba(90,20,15,.88); border: 1px solid #c25b40; color: #ffd9c4; font-weight: 800;
+  font-size: 13px; padding: 6px 16px; border-radius: 20px; white-space: nowrap; z-index: 5; }
+#log { position: absolute; left: 8px; bottom: 8px; z-index: 4; display: flex; flex-direction: column-reverse;
+  gap: 3px; pointer-events: none; max-width: 78%; }
+#log .lg { background: rgba(8,10,16,.72); border-left: 3px solid #d9a441; border-radius: 4px;
+  padding: 3px 9px; font-size: 11px; color: #eef; animation: lgf .25s ease-out; }
+#log .lg.bad { border-left-color: #c25b40; color: #ffc9b8; }
+#log .lg.good { border-left-color: #6fbf73; color: #c9f0cd; }
+@keyframes lgf { from { opacity: 0; transform: translateY(6px); } }
+#savechip { position: absolute; right: 8px; bottom: 8px; z-index: 4; font-size: 10px; color: #7fd18a;
+  opacity: 0; transition: opacity .4s; background: rgba(8,10,16,.6); padding: 2px 8px; border-radius: 10px; }
+
+#infopanel { width: 208px; padding: 8px; background: #111621; border-left: 1px solid #2c3447;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.ipanel { border: 1px solid #2c3447; border-radius: 8px; padding: 7px 8px; background: #182031; }
+.obj { font-size: 11.5px; padding: 2.5px 0; color: #cfd8e8; display: flex; gap: 5px; align-items: baseline; }
+.obj .ck { font-size: 11px; }
+.obj.done { color: #8fd69a; text-decoration: none; }
+.obj .pg { color: #7d8aa3; font-size: 10.5px; }
+#raidbox .big { font-size: 12.5px; font-weight: 800; color: #f2c14b; }
+#raidbox .sub { font-size: 11px; color: #aeb9cd; margin-top: 3px; line-height: 1.5; }
+#raidbox .good { color: #7fd18a; } #raidbox .bad { color: #ff8f70; font-weight: 800; }
+#selbox .nm { font-size: 14px; font-weight: 800; color: #f0dfae; }
+#selbox .ds { font-size: 10.5px; color: #9fb0cc; margin: 3px 0 6px; line-height: 1.5; }
+#selbox .ln { font-size: 11px; color: #cfd8e8; padding: 1.5px 0; }
+#selbox .btn { width: 100%; margin-top: 5px; }
+
+/* ---------- overlays ---------- */
+.ovl { position: absolute; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+  background: rgba(4,6,10,.78); }
+.ovl.on { display: flex; }
+.card { width: 480px; max-height: 500px; overflow-y: auto; background: linear-gradient(#232a3d, #161b28);
+  border: 1px solid #6b5426; border-radius: 14px; padding: 22px 26px; text-align: center;
+  box-shadow: 0 12px 50px #000; }
+.card h2 { color: #e7c66b; margin-bottom: 10px; letter-spacing: 1px; }
+.card p { font-size: 13px; color: #c7d1e2; line-height: 1.7; }
+.card .btn { margin: 6px 4px 0; }
+#help-body { white-space: pre-line; text-align: left; font-size: 12.5px; }
+#stars-big { font-size: 40px; letter-spacing: 8px; color: #f2c14b; text-shadow: 0 0 18px #a97b2a; margin: 4px 0; }
+#win-info { margin-bottom: 6px; white-space: pre-line; }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #3a4257; border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- royal finish ---------- */
+:root {
+  color-scheme: dark;
+  --gold: #d8b15a;
+  --gold-light: #f3dfa0;
+  --ink: #10131d;
+  --panel: #171d2b;
+}
+body {
+  background:
+    radial-gradient(ellipse at 50% 10%, #27304a 0%, #11141e 54%, #090b10 100%);
+}
+#stage {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(196,157,76,.12), transparent 42%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 5px),
+    #0b0d12;
+}
+#app {
+  border: 1px solid rgba(216,177,90,.5);
+  box-shadow: 0 24px 80px rgba(0,0,0,.72), inset 0 0 0 1px rgba(255,255,255,.035);
+}
+#app::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  z-index: 12;
+  border: 1px solid rgba(216,177,90,.22);
+  pointer-events: none;
+}
+.btn {
+  border-color: #79602f;
+  background: linear-gradient(180deg, #393344 0%, #242433 100%);
+  box-shadow: 0 3px 0 #11111a, inset 0 1px 0 rgba(255,255,255,.13);
+  transition: filter .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.btn.prime {
+  color: #fff3c8;
+  border-color: #d4ae5e;
+  background: linear-gradient(180deg, #b38b3c 0%, #806027 48%, #5b431e 100%);
+  box-shadow: 0 3px 0 #30220f, inset 0 1px 0 rgba(255,239,183,.55), 0 0 18px rgba(205,163,75,.16);
+}
+.btn.danger {
+  border-color: #8d4a3e;
+  background: linear-gradient(180deg, #71352f, #43201f);
+}
+.btn:hover:not([disabled]) {
+  filter: brightness(1.18);
+  border-color: var(--gold-light);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--gold-light);
+  outline-offset: 2px;
+}
+#screen-title {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(118,88,41,.24), transparent 38%),
+    radial-gradient(90% 120% at 50% 115%, #41331b 0%, transparent 58%),
+    radial-gradient(120% 120% at 50% -20%, #29334e 0%, #0c0f17 75%);
+}
+#screen-title .crest {
+  filter: drop-shadow(0 5px 8px #000) drop-shadow(0 0 22px rgba(218,177,89,.35));
+}
+#title-logo {
+  background: linear-gradient(180deg, #fff1b7 8%, #e4c66f 48%, #b78332 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 0 #4c3817) drop-shadow(0 8px 14px #000);
+}
+#title-sub {
+  color: #d8c38b;
+  text-shadow: 0 2px 8px #000;
+}
+#title-btns .btn {
+  min-height: 42px;
+  letter-spacing: .08em;
+}
+#title-bottom {
+  left: 18px;
+  right: 18px;
+  bottom: 12px;
+  padding: 7px 10px;
+  border: 1px solid rgba(216,177,90,.2);
+  border-radius: 10px;
+  background: rgba(8,10,16,.48);
+  color: #aa9b76;
+}
+#screen-stages {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(88,105,143,.2), transparent 55%),
+    linear-gradient(145deg, #171c2a, #10131d);
+}
+#stages-head {
+  padding: 5px 4px 10px;
+  border-bottom: 1px solid rgba(216,177,90,.3);
+}
+#stages-head h2 {
+  color: var(--gold-light);
+  text-shadow: 0 2px 10px rgba(216,177,90,.2);
+}
+.scard {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(176,149,91,.4);
+  background:
+    linear-gradient(145deg, rgba(72,79,103,.5), transparent 55%),
+    linear-gradient(180deg, #242a3b, #171b28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 5px 14px rgba(0,0,0,.18);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.scard:not(.locked):hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 20px rgba(0,0,0,.3), 0 0 16px rgba(216,177,90,.1);
+}
+.scard .nm { color: #f2dfad; }
+.scard .st { text-shadow: 0 0 10px rgba(242,193,75,.35); }
+#hud {
+  background: linear-gradient(180deg, #22283a, #131722);
+  border-bottom-color: rgba(216,177,90,.35);
+  box-shadow: 0 4px 18px rgba(0,0,0,.2);
+}
+#hud-stage { color: var(--gold-light); }
+.chip {
+  border-color: rgba(160,170,196,.22);
+  background: linear-gradient(180deg, #1a2030, #10141e);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 2px 6px rgba(0,0,0,.16);
+}
+.chip b { text-shadow: 0 0 8px rgba(255,255,255,.1); }
+#buildpanel, #infopanel {
+  background:
+    linear-gradient(145deg, rgba(39,47,67,.28), transparent 42%),
+    #111621;
+}
+#buildpanel { border-right-color: rgba(216,177,90,.22); }
+#infopanel { border-left-color: rgba(216,177,90,.22); }
+.ptitle {
+  color: var(--gold-light);
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(216,177,90,.22);
+  text-shadow: 0 0 12px rgba(216,177,90,.18);
+}
+.bitem {
+  border-color: #3c465e;
+  background: linear-gradient(145deg, #20283a, #171d2b);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.bitem:hover {
+  border-color: #927840;
+  background: linear-gradient(145deg, #2b3040, #1d2230);
+  transform: translateX(2px);
+}
+.bitem.sel {
+  border-color: var(--gold);
+  background: linear-gradient(145deg, #3c3425, #26221d);
+  box-shadow: inset 0 0 0 1px rgba(216,177,90,.25), 0 0 12px rgba(216,177,90,.1);
+}
+.ipanel {
+  border-color: rgba(150,163,194,.22);
+  background:
+    linear-gradient(145deg, rgba(53,63,87,.28), transparent 52%),
+    linear-gradient(180deg, #1b2232, #151b28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 4px 12px rgba(0,0,0,.12);
+}
+#raidbox .big { text-shadow: 0 0 12px rgba(242,193,75,.17); }
+#selbox .nm { color: var(--gold-light); }
+#cvwrap {
+  box-shadow: inset 0 0 30px rgba(8,11,18,.24);
+}
+.ovl {
+  background: rgba(4,6,10,.78);
+  backdrop-filter: blur(5px);
+}
+.card {
+  position: relative;
+  border-color: rgba(216,177,90,.72);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(116,93,51,.18), transparent 52%),
+    linear-gradient(145deg, #282d3e, #151a27 72%);
+  box-shadow: 0 22px 70px rgba(0,0,0,.72), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(216,177,90,.16);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.card h2 {
+  color: var(--gold-light);
+  text-shadow: 0 2px 12px rgba(216,177,90,.2);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #9e8044, #55472d);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+</style>
+</head>
+<body>
+
+<div id="stage">
+<div id="app">
+
+  <!-- ===== TITLE ===== -->
+  <section id="screen-title" class="screen on">
+    <div class="crest">🏰</div>
+    <div id="title-logo">ALDEVARA</div>
+    <div id="title-sub" data-i18n="app_sub"></div>
+    <div id="title-btns">
+      <button class="btn prime" id="btn-play" data-i18n="btn_play"></button>
+      <button class="btn" id="btn-continue" data-i18n="btn_continue" style="display:none"></button>
+      <button class="btn" id="btn-stages" data-i18n="btn_stages"></button>
+      <button class="btn" id="btn-help" data-i18n="btn_help"></button>
+    </div>
+    <div id="title-bottom">
+      <button class="btn mini" id="btn-lang"></button>
+      <button class="btn mini" id="btn-sound"></button>
+      <button class="btn mini" id="btn-reset" data-i18n="reset_data"></button>
+      <span>© ALDEVARA · autosave on device</span>
+    </div>
+  </section>
+
+  <!-- ===== STAGES ===== -->
+  <section id="screen-stages" class="screen">
+    <div id="stages-head">
+      <button class="btn mini" id="btn-stages-back" data-i18n="btn_back"></button>
+      <h2 data-i18n="ttl_stages"></h2>
+      <span style="flex:1"></span>
+      <span class="chip"><span class="ic">⭐</span><b id="star-total">0</b>/42</span>
+    </div>
+    <div id="stages-grid"></div>
+  </section>
+
+  <!-- ===== GAME ===== -->
+  <section id="screen-game" class="screen">
+    <div id="hud">
+      <button class="btn mini" id="btn-menu">☰</button>
+      <div id="hud-stage">–</div>
+      <div class="sp"></div>
+      <span class="chip" id="chip-gold"><span class="ic">💰</span><b>0</b></span>
+      <span class="chip" id="chip-food"><span class="ic">🍞</span><b>0</b><span class="cap">/0</span></span>
+      <span class="chip" id="chip-wood"><span class="ic">🪵</span><b>0</b><span class="cap">/0</span></span>
+      <span class="chip" id="chip-stone"><span class="ic">🪨</span><b>0</b><span class="cap">/0</span></span>
+      <span class="chip" id="chip-pop"><span class="ic">👥</span><b>0</b><span class="cap">/0</span></span>
+      <span class="chip" id="chip-happy"><span class="ic">😊</span><b>0</b></span>
+      <span class="chip" id="chip-def"><span class="ic">🛡️</span><b>0</b></span>
+      <div class="sp"></div>
+      <div id="hud-day">Day 1</div>
+      <div id="hud-right">
+        <button class="btn mini" id="btn-pause" data-i18n="spd_pause"></button>
+        <button class="btn mini spd" data-s="1">1x</button>
+        <button class="btn mini spd" data-s="2">2x</button>
+        <button class="btn mini spd" data-s="3">3x</button>
+        <button class="btn mini" id="btn-sound2"></button>
+        <button class="btn mini" id="btn-lang2"></button>
+      </div>
+    </div>
+    <div id="game-mid">
+      <div id="buildpanel">
+        <div class="ptitle" data-i18n="panel_build"></div>
+        <div id="build-hint" data-i18n="build_hint"></div>
+        <div id="build-list"></div>
+      </div>
+      <div id="cvwrap">
+        <canvas id="cv"></canvas>
+        <div id="banner"></div>
+        <div id="log"></div>
+        <div id="savechip" data-i18n="saved_note"></div>
+      </div>
+      <div id="infopanel">
+        <div class="ipanel" id="objbox"><div class="ptitle" data-i18n="panel_obj"></div><div id="obj-list"></div></div>
+        <div class="ipanel" id="raidbox"><div class="ptitle" data-i18n="panel_raid"></div><div id="raid-body"></div></div>
+        <div class="ipanel" id="selbox"><div class="ptitle" data-i18n="panel_info"></div><div id="sel-body"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== OVERLAYS ===== -->
+  <div class="ovl" id="ovl-help"><div class="card">
+    <h2 data-i18n="h_t"></h2><p id="help-body"></p>
+    <button class="btn" data-close="ovl-help" data-i18n="btn_close"></button>
+  </div></div>
+
+  <div class="ovl" id="ovl-menu"><div class="card" style="width:340px">
+    <h2>ALDEVARA</h2>
+    <button class="btn prime" id="ovl-resume" data-i18n="btn_close"></button><br>
+    <button class="btn" id="ovl-help2" data-i18n="btn_help"></button>
+    <button class="btn" id="ovl-sound"></button><br>
+    <button class="btn" id="ovl-lang"></button>
+    <button class="btn" id="ovl-stages" data-i18n="btn_stages"></button><br>
+    <button class="btn danger" id="ovl-exit" data-i18n="save_exit"></button>
+  </div></div>
+
+  <div class="ovl" id="ovl-win"><div class="card">
+    <h2 data-i18n="win_t"></h2>
+    <div id="stars-big">★★★</div>
+    <p id="win-info"></p>
+    <div id="win-btns"></div>
+  </div></div>
+
+  <div class="ovl" id="ovl-fail"><div class="card">
+    <h2 data-i18n="fail_t"></h2>
+    <p data-i18n="fail_sub"></p>
+    <div id="fail-btns"></div>
+  </div></div>
+
+</div>
+</div>
+
+<script>
+/* ALDEVARA - i18n dictionary (ja / en / zh) */
+const L10N = {
+  ja: {
+    app_sub: "中世都市経営シミュレーション",
+    btn_play: "プレイ", btn_continue: "続きから", btn_stages: "ステージ選択", btn_help: "遊び方",
+    btn_back: "戻る", btn_close: "閉じる", btn_start: "開拓開始!",
+    sound_on: "♪ 音: ON", sound_off: "♪ 音: OFF",
+    lang_label: "言語",
+    reset_data: "全データ削除", reset_q: "すべての保存データを削除しますか?",
+    ttl_stages: "ステージ選択", stage_lbl: "Stage {n}", locked: "🔒 クリアで解放",
+    best_day: "最短 {d} 日", no_record: "未クリア",
+    h_t: "遊び方",
+    h_body: "● リアルタイム都市経営: 資源は刻々と蓄積します(最大3倍速・一時停止可)。\n● 左の【建築】から建物を選び、空きマスを開いて建設。\n● 建物をタップすると詳細・lvアップ・取り壊しができます。\n● 人は労働力。民居を増やすと人口が成長します。\n● 食料が尽きると人が去ります。農畑と穀物庫(市庁舎lv)に注意。\n● 襲撃タイマーが0になると盗賊が来襲! 城壁・監視塔・兵営・鉄工房で守備力を高めましょう。\n● 撃退すれば戦利品、敗北すれば金・食料・人を奪われます。\n● 首長(ボス)襲撃は通常の2倍以上の戦力。備えを!\n● 右の【目標】をすべて達成するとステージクリア。星は速さと人口で決まります。\n● 市庁舎をレベルアップすると、🔒の区画が順次開放され、建てられる範囲が広がります。\n● データは端末内に自動保存されます。",
+    day_lbl: "{n} 日目",
+    res_gold: "金", res_food: "食料", res_wood: "木材", res_stone: "石",
+    res_pop: "人口", res_happy: "幸福", res_def: "守備",
+    spd_pause: "❚❚", save_exit: "保存して終了", saved_note: "自動保存✓",
+    panel_build: "🔨 建築", build_hint: "建物を選び→空きマスをタップ",
+    panel_obj: "🎯 目標", panel_raid: "⚔️ 襲撃", panel_info: "📋 詳細",
+    info_none: "建物をタップすると\n詳細が表示されます",
+    raid_in: "次の襲撃まで {n} 日", raid_boss_in: "⚠ 首長襲撃まで {n} 日",
+    raid_none: "この先襲撃なし", raid_march: "敵接近中! 到達まで {n} 日",
+    raid_power: "敵戦力 {a} / 守備 {d}", raid_win_o: "有利", raid_lose_o: "劣勢!",
+    raid_count: "撃退 {s} 回 / 首長 {b} 体",
+    b_hall_n: "市庁舎", b_house_n: "民居", b_farm_n: "農畑", b_lumber_n: "伐木場",
+    b_quarry_n: "石切場", b_market_n: "市場", b_smith_n: "鉄工房", b_wall_n: "城壁",
+    b_tower_n: "監視塔", b_barracks_n: "兵営", b_well_n: "井戸", b_cathedral_n: "大聖堂",
+    b_hall_d: "都市の中心。容量と建築可能lv上限が増える。",
+    b_house_d: "住居。住める人口が増える。",
+    b_farm_d: "食料を生産する。",
+    b_lumber_d: "木材を生産する。",
+    b_quarry_d: "石を生産する。",
+    b_market_d: "交易で金を産む。人口10以上が必要。",
+    b_smith_d: "武具を鍛え守備を少し上げ、木材を消費する。",
+    b_wall_d: "城壁。守備を底上げする。",
+    b_tower_d: "監視塔。高い守備力。",
+    b_barracks_d: "兵士を常駐させる最高守備。食料を消費。",
+    b_well_d: "公衆井戸。幸福度を上げる。",
+    b_cathedral_d: "大聖堂。幸福度を大きく上げる。",
+    lvl_lbl: "Lv {n}", max_lbl: "MAX", cost_lbl: "建設費", up_lbl: "lvup費",
+    out_food: "食料 {v}/日", out_wood: "木材 {v}/日", out_stone: "石 {v}/日",
+    out_gold: "金 {v}/日", out_housing: "人口上限 +{v}", out_happy: "幸福 +{v}",
+    out_def: "守備 +{v}", out_eat: "食料 {v}/日(消費)", out_use: "木材 {v}/日(消費)",
+    need_workers: "必要労働力 {v}", housing_now: "人口上限 {v}",
+    btn_upgrade: "⬆ lvアップ", btn_demolish: "🗑 取り壊し(50%返金)",
+    msg_built: "{b} を建設", msg_up: "{b} が Lv{n} に", msg_dem: "{b} を取り壊した",
+    msg_noafford: "資源が足りない", msg_gate: "市庁舎 Lv{n} が必要",
+    msg_area_locked: "この区画は未開放（市庁舎 Lv{v} が必要）", msg_area_new: "市庁舎 Lv{v}！新区画 {n} マスを開放した",
+    msg_max: "最大レベルに達した", msg_full: "住居が足りない(人口上限)",
+    msg_popneed: "人口10以上が必要", msg_busy: "マスを選択中(再度タップで解除)",
+    msg_raid: "⚔ 盗賊来襲! 戦力 {a}", msg_boss: "☠ 首長の襲撃! 戦力 {a}",
+    msg_wraid: "襲撃を撃退! 戦利品 +{g} 金", msg_lraid: "敗北… 金 {g}・食料 {f}・人を奪われた",
+    msg_starve: "🍞 飢饉! 人が街を去っている",
+    win_t: "🎉 ステージクリア!", win_day: "{d} 日で達成", par_lbl: "三星目標: {d} 日",
+    btn_next: "次のステージ ▶", btn_retry: "再挑戦", btn_menu: "タイトルへ",
+    allclear: "全ステージクリア! 皇帝があなたを讃える!",
+    fail_t: "💀 都市は陥ちた…", fail_sub: "民は散り、鐘は鳴らず。しかし物語はまだ続く。",
+    o_pop: "人口 {v} 以上", o_gold: "金 {v} を保有", o_food: "食料 {v} を備蓄",
+    o_def: "守備力 {v} 以上", o_raid: "襲撃を {v} 回撃退", o_boss: "首長を {v} 体撃破",
+    o_happy: "幸福度 {v} 以上", o_hall: "市庁舎 Lv {v}", o_b: "{b} を {v} 棟建設",
+    s0_n: "緑野の地哨", s0_h: "基本を学ぼう。農畑と民居を増やし、人を集める。",
+    s1_n: "河辺の市", s1_h: "市場は金の泉。交易路を開け。",
+    s2_n: "鉄の丘", s2_h: "石と塔。堅実な備えが街を救う。",
+    s3_n: "国境の砦", s3_h: "襲撃は頻度を増す。兵営を集めよ。",
+    s4_n: "飢饉の谷", s4_h: "冷たい風が穀物を殺す。食料を備えよ。",
+    s5_n: "盗賊首長ガルコフ", s5_h: "首長は撃破するまで何度も襲う。守備110が目安。",
+    s6_n: "黄金の都", s6_h: "四つの市場が王の道富を運ぶ。",
+    s7_n: "石の冠", s7_h: "大聖堂を建て、石の防衛線を築け。",
+    s8_n: "双頭の襲撃", s8_h: "二人の首長が順に攻める。倒し切れ。",
+    s9_n: "冬の大長夜", s9_h: "生産が落ちる冬。備蓄と兵力が命。",
+    s10_n: "王の大道", s10_h: "富と武力、両輪の時代。",
+    s11_n: "黒衣の軍団", s11_h: "果てしない襲撃の波。踏ん張れ。",
+    s12_n: "平原の聖都", s12_h: "幸福は最強の盾。民を喜ばせよ。",
+    s13_n: "帝都アウレリア", s13_h: "伝説の都を築け。二度の首長級襲撃あり。"
+  },
+  en: {
+    app_sub: "Medieval City Simulator",
+    btn_play: "PLAY", btn_continue: "CONTINUE", btn_stages: "STAGES", btn_help: "HOW TO PLAY",
+    btn_back: "Back", btn_close: "Close", btn_start: "FOUND THE CITY!",
+    sound_on: "♪ SOUND ON", sound_off: "♪ SOUND OFF",
+    lang_label: "Language",
+    reset_data: "Delete all data", reset_q: "Delete all saved data?",
+    ttl_stages: "Select Stage", stage_lbl: "Stage {n}", locked: "🔒 Clear previous stage",
+    best_day: "Best {d} days", no_record: "Unplayed",
+    h_t: "How to Play",
+    h_body: "● Real-time city sim: resources flow every second (speed x1-x3, pause ok).\n● Pick a building in the left [Build] panel, then tap an empty plot.\n● Tap any building for details / upgrade / demolish.\n● People are workers. Build houses to grow your population.\n● Starvation drives people away. Watch food and Town Hall storage.\n● When the raid timer hits zero, bandits attack! Boost defense with Walls, Towers, Barracks and the Blacksmith.\n● Repel them for loot; lose and they take gold, food and people.\n● Chieftain (boss) raids are more than twice as strong. Prepare!\n● Complete every objective in the right panel to clear the stage. Stars depend on speed & people.\n● Locked plots (🔒) cannot be built on — level up the Town Hall to open new districts.\n● Your game auto-saves on this device.",
+    day_lbl: "Day {n}",
+    res_gold: "Gold", res_food: "Food", res_wood: "Wood", res_stone: "Stone",
+    res_pop: "People", res_happy: "Joy", res_def: "Defense",
+    spd_pause: "❚❚", save_exit: "Save & Quit", saved_note: "Autosaved ✓",
+    panel_build: "🔨 Build", build_hint: "Pick a building → tap a plot",
+    panel_obj: "🎯 Objectives", panel_raid: "⚔ Raids", panel_info: "📋 Details",
+    info_none: "Tap a building\nto see its details",
+    raid_in: "Next raid in {n} days", raid_boss_in: "⚠ Chieftain raid in {n} days",
+    raid_none: "No more raids expected", raid_march: "Enemies approaching! {n} days",
+    raid_power: "Enemy {a} / Defense {d}", raid_win_o: "You are favored", raid_lose_o: "You are OUTMATCHED!",
+    raid_count: "Repelled {s} / Chiefs {b}",
+    b_hall_n: "Town Hall", b_house_n: "House", b_farm_n: "Farm", b_lumber_n: "Lumber Camp",
+    b_quarry_n: "Quarry", b_market_n: "Market", b_smith_n: "Blacksmith", b_wall_n: "Wall",
+    b_tower_n: "Tower", b_barracks_n: "Barracks", b_well_n: "Well", b_cathedral_n: "Cathedral",
+    b_hall_d: "Heart of the city. Raises storage and build-level cap.",
+    b_house_d: "Living space. Raises population cap.",
+    b_farm_d: "Produces food.",
+    b_lumber_d: "Produces wood.",
+    b_quarry_d: "Produces stone.",
+    b_market_d: "Trade produces gold. Needs 10+ population.",
+    b_smith_d: "Forges weapons: +defense, consumes wood.",
+    b_wall_d: "City wall. Steady defense bonus.",
+    b_tower_d: "Watch tower. Strong defense.",
+    b_barracks_d: "Garrisoned soldiers: best defense, eats food.",
+    b_well_d: "Public well. Raises happiness.",
+    b_cathedral_d: "Grand cathedral. Big happiness boost.",
+    lvl_lbl: "Lv {n}", max_lbl: "MAX", cost_lbl: "Cost", up_lbl: "Upgrade cost",
+    out_food: "Food {v}/day", out_wood: "Wood {v}/day", out_stone: "Stone {v}/day",
+    out_gold: "Gold {v}/day", out_housing: "Pop cap +{v}", out_happy: "Joy +{v}",
+    out_def: "Defense +{v}", out_eat: "Food {v}/day (used)", out_use: "Wood {v}/day (used)",
+    need_workers: "Workers {v}", housing_now: "Pop cap {v}",
+    btn_upgrade: "⬆ Upgrade", btn_demolish: "🗑 Demolish (50% back)",
+    msg_built: "Built {b}", msg_up: "{b} reached Lv{n}", msg_dem: "{b} demolished",
+    msg_noafford: "Not enough resources", msg_gate: "Needs Town Hall Lv{n}",
+    msg_area_locked: "District locked (Town Hall Lv{v} required)", msg_area_new: "Town Hall Lv{v}! {n} new tiles unlocked",
+    msg_max: "Maximum level reached", msg_full: "Not enough housing",
+    msg_popneed: "Needs 10+ population", msg_busy: "Plot mode (tap again to cancel)",
+    msg_raid: "⚔ Bandits raid! Power {a}", msg_boss: "☠ CHIEFTAIN RAID! Power {a}",
+    msg_wraid: "Raid repelled! Loot +{g} gold", msg_lraid: "Defeated… lost {g} gold, {f} food, and people",
+    msg_starve: "🍞 Famine! People are leaving",
+    win_t: "🎉 Stage Clear!", win_day: "Cleared in {d} days", par_lbl: "3 stars ≤ {d} days",
+    btn_next: "Next Stage ▶", btn_retry: "Retry", btn_menu: "Title",
+    allclear: "All stages cleared! The Emperor praises you!",
+    fail_t: "💀 The city has fallen…", fail_sub: "Your people scattered. The story is not over yet.",
+    o_pop: "Reach {v} population", o_gold: "Hold {v} gold", o_food: "Stockpile {v} food",
+    o_def: "Reach {v} defense", o_raid: "Survive {v} raids", o_boss: "Defeat {v} chieftains",
+    o_happy: "Happiness ≥ {v}", o_hall: "Town Hall Lv {v}", o_b: "Build {b} × {v}",
+    s0_n: "Greenfield Watch", s0_h: "Learn the basics: farms and houses first.",
+    s1_n: "Riverside Market", s1_h: "Markets are fountains of gold.",
+    s2_n: "Iron Hill", s2_h: "Stone and towers save cities.",
+    s3_n: "Border Keep", s3_h: "Raids grow frequent. Mass barracks.",
+    s4_n: "Famine Valley", s4_h: "A cold wind kills the grain. Stock food.",
+    s5_n: "Bandit Lord Garkov", s5_h: "The boss returns until slain. ~110 defense advised.",
+    s6_n: "Golden City", s6_h: "Four markets carry royal wealth.",
+    s7_n: "Stone Crown", s7_h: "Raise a cathedral and a stone line.",
+    s8_n: "Twin Chiefs", s8_h: "Two chieftains strike in turn. Defeat them both.",
+    s9_n: "Long Winter Night", s9_h: "Winter cuts production. Reserve well.",
+    s10_n: "King's Road", s10_h: "An age of wealth and steel.",
+    s11_n: "Black Company", s11_h: "Endless waves. Hold on.",
+    s12_n: "Holy City of Plains", s12_h: "Happiness is the best shield.",
+    s13_n: "Imperial Capital Aurelia", s13_h: "Build the legendary capital. Two boss raids."
+  },
+  zh: {
+    app_sub: "中世纪都市经营模拟",
+    btn_play: "开始游戏", btn_continue: "继续游戏", btn_stages: "选择关卡", btn_help: "玩法说明",
+    btn_back: "返回", btn_close: "关闭", btn_start: "开始开拓！",
+    sound_on: "♪ 音效: 开", sound_off: "♪ 音效: 关",
+    lang_label: "语言",
+    reset_data: "删除全部数据", reset_q: "确定删除所有存档数据吗？",
+    ttl_stages: "选择关卡", stage_lbl: "第 {n} 关", locked: "🔒 通关前一关解锁",
+    best_day: "最快 {d} 天", no_record: "未通关",
+    h_t: "玩法说明",
+    h_body: "● 实时城市经营：资源每秒都在累积（可 1~3 倍速、可暂停）。\n● 在左侧【建造】选择建筑，再点击空格建造。\n● 点击建筑可查看、升级或拆除。\n● 居民即劳动力。扩建民居可增长人口。\n● 粮食耗尽会流失人口，注意农田与市政厅仓储。\n● 袭击倒计时归零时盗贼来袭！用城墙、瞭望塔、兵营、铁匠铺提升防御。\n● 击退可获得战利品；失败则损失金币、粮食和人口。\n● 首领（Boss）袭击战力超过普通的两倍，务必防备！\n● 完成右侧全部目标即通关。星级取决于速度与人口。\n● 上锁的格子无法建造，升级市政厅可逐步解锁新区划。\n● 游戏会自动保存在本机。",
+    day_lbl: "第 {n} 天",
+    res_gold: "金币", res_food: "粮食", res_wood: "木材", res_stone: "石料",
+    res_pop: "人口", res_happy: "幸福", res_def: "防御",
+    spd_pause: "❚❚", save_exit: "保存并退出", saved_note: "已自动保存 ✓",
+    panel_build: "🔨 建造", build_hint: "选择建筑 → 点击空格",
+    panel_obj: "🎯 目标", panel_raid: "⚔ 袭击", panel_info: "📋 详情",
+    info_none: "点击建筑\n查看详情",
+    raid_in: "下次袭击还有 {n} 天", raid_boss_in: "⚠ 首领袭击还有 {n} 天",
+    raid_none: "暂无袭击", raid_march: "敌人逼近！{n} 天后到达",
+    raid_power: "敌方战力 {a} / 我方防御 {d}", raid_win_o: "我占优势", raid_lose_o: "我方劣势！",
+    raid_count: "已击退 {s} 次 / 首领 {b} 个",
+    b_hall_n: "市政厅", b_house_n: "民居", b_farm_n: "农田", b_lumber_n: "伐木场",
+    b_quarry_n: "采石场", b_market_n: "集市", b_smith_n: "铁匠铺", b_wall_n: "城墙",
+    b_tower_n: "瞭望塔", b_barracks_n: "兵营", b_well_n: "水井", b_cathedral_n: "大教堂",
+    b_hall_d: "城市中心。提升仓库容量与建筑等级上限。",
+    b_house_d: "住宅。提高人口上限。",
+    b_farm_d: "生产粮食。",
+    b_lumber_d: "生产木材。",
+    b_quarry_d: "生产石料。",
+    b_market_d: "贸易产生金币。需人口 10 以上。",
+    b_smith_d: "锻造武器：提升防御，消耗木材。",
+    b_wall_d: "城墙。稳步提升防御。",
+    b_tower_d: "瞭望塔。高防御。",
+    b_barracks_d: "常驻士兵：防御最高，消耗粮食。",
+    b_well_d: "公用水井。提升幸福度。",
+    b_cathedral_d: "大教堂。大幅提升幸福度。",
+    lvl_lbl: "等级 {n}", max_lbl: "已满级", cost_lbl: "建造费用", up_lbl: "升级费用",
+    out_food: "粮食 {v}/天", out_wood: "木材 {v}/天", out_stone: "石料 {v}/天",
+    out_gold: "金币 {v}/天", out_housing: "人口上限 +{v}", out_happy: "幸福 +{v}",
+    out_def: "防御 +{v}", out_eat: "粮食 {v}/天（消耗）", out_use: "木材 {v}/天（消耗）",
+    need_workers: "需劳动力 {v}", housing_now: "人口上限 {v}",
+    btn_upgrade: "⬆ 升级", btn_demolish: "🗑 拆除（返还50%）",
+    msg_built: "建成 {b}", msg_up: "{b} 升至 Lv{n}", msg_dem: "拆除了 {b}",
+    msg_noafford: "资源不足", msg_gate: "需要市政厅 Lv{n}",
+    msg_area_locked: "该区划尚未开放（需市政厅 Lv{v}）", msg_area_new: "市政厅 Lv{v}！解锁新区划 {n} 格",
+    msg_max: "已达最高等级", msg_full: "住房不足（人口上限）",
+    msg_popneed: "需要人口 10 以上", msg_busy: "已选地块（再点一次取消）",
+    msg_raid: "⚔ 盗贼来袭！战力 {a}", msg_boss: "☠ 首领袭击！战力 {a}",
+    msg_wraid: "成功击退！战利品 +{g} 金币", msg_lraid: "战败…损失 {g} 金币、{f} 粮食与人口",
+    msg_starve: "🍞 饥荒！人口正在流失",
+    win_t: "🎉 通关！", win_day: "用时 {d} 天", par_lbl: "三星目标：{d} 天",
+    btn_next: "下一关 ▶", btn_retry: "重试", btn_menu: "回标题",
+    allclear: "全部通关！皇帝为你加冕！",
+    fail_t: "💀 城市沦陷…", fail_sub: "人民流离失所，但故事仍在继续。",
+    o_pop: "人口达到 {v}", o_gold: "持有金币 {v}", o_food: "储备粮食 {v}",
+    o_def: "防御达到 {v}", o_raid: "击退 {v} 次袭击", o_boss: "击破 {v} 个首领",
+    o_happy: "幸福度 ≥ {v}", o_hall: "市政厅达到 Lv {v}", o_b: "建造 {b} × {v}",
+    s0_n: "绿野哨站", s0_h: "学习基础：先建农田和民居。",
+    s1_n: "河畔集市", s1_h: "集市是金币的源泉。",
+    s2_n: "铁矿山丘", s2_h: "石头与塔楼守护城市。",
+    s3_n: "边境要塞", s3_h: "袭击愈发频繁，广建兵营。",
+    s4_n: "饥馑之谷", s4_h: "寒风令谷物歉收，广储粮食。",
+    s5_n: "盗贼首领加尔科夫", s5_h: "首领会在被消灭前反复来袭，建议防御110。",
+    s6_n: "黄金之城", s6_h: "四座集市带来王道的财富。",
+    s7_n: "石之冠", s7_h: "建大教堂，筑石造防线。",
+    s8_n: "双头袭击", s8_h: "两位首领先后来袭，将其逐一消灭。",
+    s9_n: "漫长冬夜", s9_h: "寒冬降低产出，广积粮备好兵。",
+    s10_n: "国王大道", s10_h: "财富与武力的时代。",
+    s11_n: "黑衣军团", s11_h: "无尽的袭击浪潮，坚持住。",
+    s12_n: "平原圣都", s12_h: "幸福是最强的盾牌。",
+    s13_n: "帝都奥瑞莉亚", s13_h: "缔造传说之都，两场首领袭击。"
+  }
+};
+if (typeof window !== "undefined") window.L10N = L10N;
+if (typeof module !== "undefined") module.exports = L10N;
+
+</script>
+<script>
+/* ============================================================
+   ALDEVARA - Medieval City Simulator
+   real-time / defense & raids / 14 stages / ja-en-zh / autosave
+   ============================================================ */
+"use strict";
+
+/* ---------------- helpers ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const rnd = (a, b) => a + Math.random() * (b - a);
+function fmt(n) {
+  n = Math.floor(n);
+  if (n >= 100000) return (n / 1000).toFixed(0) + "k";
+  if (n >= 10000) return (n / 1000).toFixed(1) + "k";
+  return "" + n;
+}
+
+/* ---------------- i18n ---------------- */
+let lang = "ja";
+function tr(key, p) {
+  const d = window.L10N;
+  let s = (d[lang] && d[lang][key]) || d.en[key] || key;
+  if (p) s = s.replace(/\{(\w+)\}/g, (_, k) => (p[k] !== undefined ? p[k] : "{" + k + "}"));
+  return s;
+}
+const bName = id => tr("b_" + id + "_n");
+
+/* ---------------- data ---------------- */
+const COLS = 7, ROWS = 5, NCELL = COLS * ROWS, HALL_IDX = 2 * COLS + 3;
+const DAYLEN = 8; // real seconds per in-game day @1x
+
+const BUILD = {
+  hall:      { em: "🏰", maxL: 5, cost: { gold: 0,   wood: 0,   stone: 0   } },
+  house:     { em: "🏠", maxL: 3, cost: { gold: 50,  wood: 35,  stone: 0   }, housing: 7 },
+  farm:      { em: "🌾", maxL: 3, cost: { gold: 45,  wood: 25,  stone: 0   }, food: 7,   wk: 3 },
+  lumber:    { em: "🪓", maxL: 3, cost: { gold: 70,  wood: 0,   stone: 5   }, wood: 4.5, wk: 2 },
+  quarry:    { em: "⛏️", maxL: 3, cost: { gold: 100, wood: 15,  stone: 0   }, stone: 3.5, wk: 3 },
+  market:    { em: "🏪", maxL: 3, cost: { gold: 130, wood: 40,  stone: 0   }, gold: 6,   wk: 3, needPop: 10 },
+  smith:     { em: "⚒️", maxL: 3, cost: { gold: 160, wood: 0,   stone: 35  }, def: 4,    wk: 2, useWood: 1 },
+  wall:      { em: "🧱", maxL: 3, cost: { gold: 40,  wood: 0,   stone: 50  }, def: 8 },
+  tower:     { em: "🗼", maxL: 3, cost: { gold: 70,  wood: 0,   stone: 70  }, def: 14,  wk: 1 },
+  barracks:  { em: "🛡️", maxL: 3, cost: { gold: 200, wood: 70,  stone: 50  }, def: 20,  wk: 5, eatFood: 3 },
+  well:      { em: "⛲", maxL: 2, cost: { gold: 30,  wood: 0,   stone: 80  }, happy: 4 },
+  cathedral: { em: "⛪", maxL: 3, cost: { gold: 350, wood: 120, stone: 180 }, happy: 10, wk: 2 }
+};
+const BIDS = Object.keys(BUILD);
+const UP_MULT = 2.2;
+const HALL_UP = [
+  { gold:300,  wood:100, stone:150  },  // 🏰Lv2
+  { gold:800,  wood:250, stone:400  },  // 🏰Lv3
+  { gold:1800, wood:500, stone:900  },  // 🏰Lv4
+  { gold:4000, wood:900, stone:1800 }   // 🏰Lv5
+];
+function costOf(id, toLvl) {
+  if (id === "hall") return Object.assign({}, HALL_UP[Math.max(0, Math.min(3, toLvl - 2))]);
+  const m = Math.pow(UP_MULT, toLvl - 1), c = BUILD[id].cost;
+  return { gold: Math.round(c.gold * m), wood: Math.round(c.wood * m), stone: Math.round(c.stone * m) };
+}
+function costText(c) {
+  const s = [];
+  if (c.gold) s.push("💰" + fmt(c.gold));
+  if (c.wood) s.push("🪵" + fmt(c.wood));
+  if (c.stone) s.push("🪨" + fmt(c.stone));
+  return s.length ? s.join(" ") : "—";
+}
+
+/* stage table (14 stages) */
+const STAGES = [
+  { gold:250, wood:120, stone:60,  food:200, pop:10, raidEvery:16, pow0:11,  grow:4,  boss:[],   prod:1,    par:35,  conds:[{t:"b",id:"farm",v:3},{t:"pop",v:15},{t:"raid",v:1}] },
+  { gold:300, wood:150, stone:80,  food:250, pop:12, raidEvery:15, pow0:20,  grow:4,  boss:[],   prod:1,    par:45,  conds:[{t:"pop",v:25},{t:"gold",v:400},{t:"raid",v:2}] },
+  { gold:350, wood:160, stone:140, food:260, pop:14, raidEvery:12, pow0:28,  grow:5,  boss:[],   prod:1,    par:50,  conds:[{t:"b",id:"quarry",v:2},{t:"def",v:90},{t:"raid",v:3}] },
+  { gold:450, wood:180, stone:300, food:280, pop:16, raidEvery:11, pow0:40,  grow:6,  boss:[],   prod:1,    par:55,  conds:[{t:"def",v:150},{t:"raid",v:4},{t:"pop",v:35}] },
+  { gold:450, wood:200, stone:180, food:200, pop:18, raidEvery:14, pow0:50,  grow:5,  boss:[],   prod:0.9,  par:60,  conds:[{t:"food",v:320},{t:"pop",v:45},{t:"raid",v:3}] },
+  { gold:500, wood:220, stone:240, food:300, pop:20, raidEvery:18, pow0:48,  grow:5,  boss:[2],  prod:1,    par:65,  conds:[{t:"boss",v:1},{t:"pop",v:40}] },
+  { gold:600, wood:240, stone:220, food:350, pop:22, raidEvery:13, pow0:68,  grow:6,  boss:[],   prod:1,    par:65,  conds:[{t:"gold",v:2000},{t:"b",id:"market",v:4},{t:"raid",v:3}] },
+  { gold:650, wood:260, stone:260, food:350, pop:24, raidEvery:12, pow0:82,  grow:7,  boss:[],   prod:1,    par:70,  conds:[{t:"b",id:"cathedral",v:1},{t:"def",v:200},{t:"pop",v:55}] },
+  { gold:700, wood:280, stone:300, food:400, pop:26, raidEvery:11, pow0:95,  grow:8,  boss:[4,6],prod:1,    par:75,  conds:[{t:"boss",v:2},{t:"raid",v:5}] },
+  { gold:750, wood:300, stone:300, food:450, pop:28, raidEvery:10, pow0:112, grow:8,  boss:[],   prod:0.75, par:80,  conds:[{t:"pop",v:65},{t:"raid",v:6},{t:"food",v:420}] },
+  { gold:850, wood:340, stone:320, food:450, pop:30, raidEvery:11, pow0:130, grow:8,  boss:[],   prod:1,    par:85,  conds:[{t:"gold",v:3500},{t:"pop",v:70},{t:"def",v:300}] },
+  { gold:950, wood:360, stone:360, food:500, pop:32, raidEvery:9,  pow0:150, grow:9,  boss:[],   prod:1,    par:85,  conds:[{t:"raid",v:5},{t:"def",v:340},{t:"pop",v:75}] },
+  { gold:1050,wood:400, stone:400, food:500, pop:34, raidEvery:12, pow0:165, grow:7,  boss:[],   prod:1,    par:90,  conds:[{t:"happy",v:80},{t:"pop",v:85},{t:"raid",v:4}] },
+  { gold:1200,wood:450, stone:450, food:600, pop:36, raidEvery:10, pow0:200, grow:9,  boss:[3,6],prod:1,    par:110, conds:[{t:"pop",v:100},{t:"gold",v:6000},{t:"def",v:380},{t:"boss",v:2}] }
+];
+
+/* ---------------- save / meta ---------------- */
+const SKEY = "aldevara_save_v1";
+let meta = { lang: "ja", sound: true, unlocked: 0, rec: {}, run: null };
+function loadMeta() {
+  try {
+    const s = localStorage.getItem(SKEY);
+    if (s) { const m = JSON.parse(s); if (m && typeof m === "object") meta = Object.assign(meta, m); }
+  } catch (e) { /* memory-only fallback */ }
+  lang = (meta.lang && window.L10N[meta.lang]) ? meta.lang : "ja";
+  SND.on = meta.sound !== false;
+}
+function saveMeta() { try { localStorage.setItem(SKEY, JSON.stringify(meta)); } catch (e) {} }
+
+/* ---------------- sound (WebAudio, no assets) ---------------- */
+const SND = {
+  ctx: null, master: null, on: true, bgmTimer: null, step: 0, nextT: 0,
+  init() {
+    if (this.ctx) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.on ? 0.5 : 0;
+      this.master.connect(this.ctx.destination);
+      this.nextT = this.ctx.currentTime + 0.1;
+      this.bgmTimer = setInterval(() => this.sched(), 220);
+    } catch (e) {}
+  },
+  setOn(v) {
+    this.on = v; meta.sound = v; saveMeta();
+    if (this.ctx) this.master.gain.value = v ? 0.5 : 0;
+  },
+  resume() { if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); },
+  tone(f, t0, dur, type, g, slideTo) {
+    if (!this.ctx) return;
+    const o = this.ctx.createOscillator(), v = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    v.gain.setValueAtTime(g, t0);
+    v.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(v); v.connect(this.master);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  },
+  sfx(kind) {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    switch (kind) {
+      case "click": this.tone(760, t, 0.06, "square", 0.08); break;
+      case "place": this.tone(150, t, 0.22, "triangle", 0.4, 60); this.tone(90, t + 0.03, 0.18, "sine", 0.3, 45); break;
+      case "up": [523, 659, 784].forEach((f, i) => this.tone(f, t + i * 0.07, 0.12, "triangle", 0.2)); break;
+      case "coin": this.tone(1318, t, 0.07, "square", 0.12); this.tone(1760, t + 0.07, 0.1, "square", 0.12); break;
+      case "err": this.tone(120, t, 0.18, "sawtooth", 0.14, 85); break;
+      case "raid": this.tone(233, t, 0.5, "sawtooth", 0.2, 140); this.tone(233, t + 0.55, 0.6, "sawtooth", 0.2, 120); break;
+      case "clash": for (let i = 0; i < 5; i++) this.tone(rnd(180, 900), t + i * 0.05, 0.07, "square", 0.1); break;
+      case "win": [523, 659, 784, 1046, 784, 1046].forEach((f, i) => this.tone(f, t + i * 0.13, 0.22, "triangle", 0.22)); break;
+      case "lose": [392, 311, 233].forEach((f, i) => this.tone(f, t + i * 0.22, 0.34, "triangle", 0.2)); break;
+    }
+  },
+  sched() {
+    if (!this.ctx || !this.on) return;
+    const mel = [62,0,65,0, 69,0,67,65, 62,0,60,0, 57,0,0,0, 62,0,65,0, 67,0,69,72, 74,0,69,65, 67,0,0,0];
+    while (this.nextT < this.ctx.currentTime + 0.7) {
+      const m = mel[this.step % mel.length];
+      if (m) this.tone(440 * Math.pow(2, (m - 69) / 12), this.nextT, 0.3, "triangle", 0.11);
+      if (this.step % 8 === 0) this.tone(440 * Math.pow(2, (38 - 69) / 12), this.nextT, 2.1, "triangle", 0.07);
+      this.nextT += 0.3; this.step++;
+    }
+  }
+};
+document.addEventListener("pointerdown", () => { SND.init(); SND.resume(); }, { passive: true });
+
+/* ---------------- state ---------------- */
+let run = null;             // active game run
+let screen = "screen-title";
+let buildSel = null;        // building id selected for placement
+let selIdx = -1;            // selected plot
+let menuOpen = false;
+let fx = { floats: [], parts: [], flash: 0 };
+let hudAcc = 0, saveAcc = 0, bannerTimer = null;
+
+function newRun(si) {
+  const S = STAGES[si];
+  const r = {
+    si, day: 0.25, res: { gold: S.gold, wood: S.wood, stone: S.stone, food: S.food },
+    pop: S.pop, pen: 0, grid: new Array(NCELL).fill(null),
+    nextRaid: S.raidEvery, raidSurvived: 0, bossesKilled: 0,
+    raid: null, speed: 1, paused: false, over: false, logs: [], starveLogDay: -99
+  };
+  r.grid[HALL_IDX] = { id: "hall", l: 1, inv: { gold: 0, wood: 0, stone: 0 } };
+  return r;
+}
+
+/* derived numbers */
+const stg = () => STAGES[run.si];
+const hallLvl = () => { const h = run.grid[HALL_IDX]; return h ? h.l : 1; };
+/* district unlock: new land opens as the hall levels up (rings around the hall) */
+function reqLvl(idx) {
+  const hc = HALL_IDX % COLS, hr = (HALL_IDX / COLS) | 0;
+  const dc = Math.abs((idx % COLS) - hc), dr = Math.abs(((idx / COLS) | 0) - hr);
+  const d = Math.max(dc, dr);
+  if (d <= 1) return 1;
+  if (d === 2) return dc <= 1 ? 2 : 3;
+  return dr <= 1 ? 4 : 5;
+}
+const cellOpen = idx => reqLvl(idx) <= hallLvl();
+const tilesForLvl = n => { let k = 0; for (let i = 0; i < NCELL; i++) if (reqLvl(i) === n) k++; return k; };
+function housingCap() { let h = 12; run.grid.forEach(b => { if (b && BUILD[b.id].housing) h += BUILD[b.id].housing * b.l; }); return h; }
+const capFood = () => 150 + 100 * hallLvl();
+const capMat = () => 250 + 150 * hallLvl();
+function happyVal() {
+  let hp = 55;
+  run.grid.forEach(b => { if (b && BUILD[b.id].happy) hp += BUILD[b.id].happy * b.l; });
+  return clamp(hp - run.pen, 5, 100);
+}
+function workWant() {
+  let w = 0; run.grid.forEach(b => { if (b && BUILD[b.id].wk) w += BUILD[b.id].wk * b.l; }); return w;
+}
+function workEff() { const w = workWant(); return w <= 0 ? 1 : Math.min(1, run.pop / w); }
+function prodMult() { return stg().prod * (0.55 + 0.45 * happyVal() / 100) * workEff(); }
+function curDef() {
+  let d = 0;
+  run.grid.forEach(b => { if (b && BUILD[b.id].def) d += BUILD[b.id].def * b.l; });
+  d += run.pop * 0.6; // militia of townsfolk
+  return d * (1 + 0.06 * (hallLvl() - 1)) * (0.7 + 0.3 * happyVal() / 100);
+}
+function netFood() {
+  let f = 0;
+  run.grid.forEach(b => {
+    if (!b) return; const d = BUILD[b.id];
+    if (d.food) f += d.food * b.l;
+    if (d.eatFood) f -= d.eatFood * b.l;
+  });
+  return f * prodMult() - 0.35 * run.pop;
+}
+function raidIsBoss() {
+  const bs = stg().boss || [];
+  for (let i = 0; i < bs.length; i++) {
+    if (run.bossesKilled <= i && bs[i] <= run.raidSurvived + 1) return true;
+  }
+  return false;
+}
+function raidPow(boss) {
+  const S = stg();
+  let a = S.pow0 + run.raidSurvived * S.grow;
+  if (boss) a *= 1.9;
+  return Math.round(a);
+}
+
+/* ---------------- log ---------------- */
+function logMsg(key, p, cls) {
+  run.logs.push({ k: key, p, cls: cls || "", day: Math.floor(run.day) + 1 });
+  if (run.logs.length > 6) run.logs.shift();
+  renderLog();
+}
+function renderLog() {
+  const el = $("#log"); el.innerHTML = "";
+  run.logs.slice(-4).forEach(m => {
+    const d = document.createElement("div");
+    d.className = "lg " + m.cls;
+    d.textContent = "[Day " + m.day + "] " + tr(m.k, m.p);
+    el.appendChild(d);
+  });
+}
+
+/* ---------------- build actions ---------------- */
+function canAfford(c) { return run.res.gold >= c.gold && run.res.wood >= c.wood && run.res.stone >= c.stone; }
+function pay(c) { run.res.gold -= c.gold; run.res.wood -= c.wood; run.res.stone -= c.stone; }
+
+function tryBuild(idx) {
+  const id = buildSel, b = run.grid[idx];
+  if (!id || b) return;
+  if (!cellOpen(idx)) { logMsg("msg_area_locked", { v: reqLvl(idx) }, "bad"); SND.sfx("err"); return; }
+  const D = BUILD[id];
+  const lvlMax = Math.min(D.maxL, hallLvl());
+  if (lvlMax < 1) { logMsg("msg_gate", { n: 1 }, "bad"); SND.sfx("err"); return; }
+  if (D.needPop && run.pop < D.needPop) { logMsg("msg_popneed", {}, "bad"); SND.sfx("err"); return; }
+  const c = costOf(id, 1);
+  if (!canAfford(c)) { logMsg("msg_noafford", {}, "bad"); SND.sfx("err"); return; }
+  pay(c);
+  run.grid[idx] = { id, l: 1, inv: { gold: c.gold, wood: c.wood, stone: c.stone } };
+  const t = tilePos(idx % COLS, (idx / COLS) | 0);
+  spawnParts(t.sx, t.sy, "#d9a441", 10);
+  logMsg("msg_built", { b: bName(id) }, "good");
+  SND.sfx("place");
+  selIdx = idx;
+  renderBuildList(); renderSel();
+}
+function tryUpgrade() {
+  const b = run.grid[selIdx]; if (!b) return;
+  const D = BUILD[b.id], to = b.l + 1;
+  if (to > D.maxL) { logMsg("msg_max", {}, "bad"); SND.sfx("err"); return; }
+  if (b.id !== "hall" && to > hallLvl()) { logMsg("msg_gate", { n: to }, "bad"); SND.sfx("err"); return; }
+  const c = costOf(b.id, to);
+  if (!canAfford(c)) { logMsg("msg_noafford", {}, "bad"); SND.sfx("err"); return; }
+  pay(c);
+  b.l = to; b.inv.gold += c.gold; b.inv.wood += c.wood; b.inv.stone += c.stone;
+  logMsg("msg_up", { b: bName(b.id), n: to }, "good");
+  if (b.id === "hall") {
+    const n = tilesForLvl(to);
+    if (n > 0) {
+      const ht = tilePos(HALL_IDX % COLS, (HALL_IDX / COLS) | 0);
+      spawnParts(ht.sx, ht.sy, "#8fe08f", 20);
+      logMsg("msg_area_new", { v: to, n: n }, "good");
+    }
+  }
+  SND.sfx("up");
+  renderBuildList(); renderSel(); autosave(true);
+}
+function tryDemolish() {
+  const b = run.grid[selIdx]; if (!b || b.id === "hall") return;
+  const g = { gold: Math.round(b.inv.gold * 0.5), wood: Math.round(b.inv.wood * 0.5), stone: Math.round(b.inv.stone * 0.5) };
+  run.res.gold += g.gold; run.res.wood += g.wood; run.res.stone += g.stone;
+  run.grid[selIdx] = null;
+  logMsg("msg_dem", { b: bName(b.id) });
+  SND.sfx("err");
+  selIdx = -1; renderBuildList(); renderSel();
+}
+
+/* ---------------- raid ---------------- */
+function spawnRaid() {
+  const boss = raidIsBoss();
+  const atk = raidPow(boss);
+  run.raid = { t: 0, dur: Math.max(3.5, stg().raidEvery * 0.3), atk, boss };
+  logMsg(boss ? "msg_boss" : "msg_raid", { a: fmt(atk) }, "bad");
+  showBanner(tr(boss ? "msg_boss" : "msg_raid", { a: fmt(atk) }));
+  SND.sfx("raid");
+  try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (e) {}
+}
+function resolveRaid() {
+  const d = curDef(), a = run.raid.atk, boss = run.raid.boss;
+  SND.sfx("clash"); fx.flash = 0.5;
+  spawnParts(gatePos().x, gatePos().y, "#ff7a50", 26);
+  if (d >= a) {
+    const loot = Math.round(12 + 0.45 * a);
+    run.res.gold += loot;
+    run.pop = Math.max(1, run.pop - run.pop * 0.02);
+    run.pen += 4;
+    logMsg("msg_wraid", { g: fmt(loot) }, "good");
+    addFloat(gatePos().x, gatePos().y - 40, "+" + loot + " 💰", "#ffd76b");
+    SND.sfx("coin");
+    if (boss) run.bossesKilled++;
+  } else {
+    const gl = Math.round(run.res.gold * 0.3), fl = Math.round(run.res.food * 0.3);
+    run.res.gold -= gl; run.res.food -= fl;
+    const loss = run.pop * (0.10 + 0.20 * (1 - d / Math.max(1, a)));
+    run.pop = Math.max(0, run.pop - loss);
+    run.pen += 16;
+    logMsg("msg_lraid", { g: fmt(gl), f: fmt(fl) }, "bad");
+    addFloat(gatePos().x, gatePos().y - 40, "-" + fmt(gl) + " 💰", "#ff8f70");
+    SND.sfx("lose");
+  }
+  run.raidSurvived++;
+  run.raid = null;
+  run.nextRaid = stg().raidEvery;
+  autosave(true);
+}
+function showBanner(txt) {
+  const b = $("#banner");
+  b.textContent = txt; b.style.display = "block";
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { b.style.display = "none"; }, 3200);
+}
+
+/* ---------------- objectives / win / fail ---------------- */
+function objProgress(c) {
+  switch (c.t) {
+    case "pop": return [Math.floor(run.pop), c.v];
+    case "gold": return [Math.floor(run.res.gold), c.v];
+    case "food": return [Math.floor(run.res.food), c.v];
+    case "def": return [Math.round(curDef()), c.v];
+    case "raid": return [run.raidSurvived, c.v];
+    case "boss": return [run.bossesKilled, c.v];
+    case "happy": return [Math.round(happyVal()), c.v];
+    case "hall": return [hallLvl(), c.v];
+    case "b": { let n = 0; run.grid.forEach(b => { if (b && b.id === c.id) n++; }); return [n, c.v]; }
+  }
+  return [0, 1];
+}
+function objText(c) {
+  if (c.t === "b") return tr("o_b", { b: bName(c.id), v: c.v });
+  return tr("o_" + c.t, { v: c.v });
+}
+function checkWin() {
+  if (stg().conds.every(c => objProgress(c)[0] >= objProgress(c)[1])) winStage();
+}
+function winStage() {
+  if (run.over) return;
+  run.over = true;
+  const S = stg(), d = Math.ceil(run.day);
+  const stars = d <= S.par ? 3 : d <= Math.ceil(S.par * 1.5) ? 2 : 1;
+  const key = run.si, rec = meta.rec[key] || { stars: 0, day: 1e9 };
+  meta.rec[key] = { stars: Math.max(rec.stars, stars), day: Math.min(rec.day, d) };
+  meta.unlocked = Math.max(meta.unlocked, Math.min(STAGES.length - 1, run.si + 1));
+  meta.run = null; saveMeta();
+  SND.sfx("win");
+  $("#stars-big").textContent = "★".repeat(stars) + "☆".repeat(3 - stars);
+  $("#win-info").textContent = tr("win_day", { d }) + " · " + tr("par_lbl", { d: S.par });
+  const bw = $("#win-btns"); bw.innerHTML = "";
+  if (run.si < STAGES.length - 1) {
+    bw.appendChild(mkBtn(tr("btn_next"), "btn prime", () => { closeOverlays(); startStage(run.si + 1); }));
+  } else {
+    $("#win-info").textContent += "\n" + tr("allclear");
+  }
+  bw.appendChild(mkBtn(tr("btn_retry"), "btn", () => { closeOverlays(); startStage(run.si); }));
+  bw.appendChild(mkBtn(tr("btn_menu"), "btn", () => { closeOverlays(); toTitle(); }));
+  $("#ovl-win").classList.add("on");
+}
+function failGame() {
+  if (run.over) return;
+  run.over = true; meta.run = null; saveMeta();
+  SND.sfx("lose");
+  const bw = $("#fail-btns"); bw.innerHTML = "";
+  bw.appendChild(mkBtn(tr("btn_retry"), "btn prime", () => { closeOverlays(); startStage(run.si); }));
+  bw.appendChild(mkBtn(tr("btn_menu"), "btn", () => { closeOverlays(); toTitle(); }));
+  $("#ovl-fail").classList.add("on");
+}
+function mkBtn(txt, cls, fn) {
+  const b = document.createElement("button");
+  b.className = cls; b.textContent = txt;
+  b.addEventListener("click", () => { SND.sfx("click"); fn(); });
+  return b;
+}
+function closeOverlays() { $$(".ovl").forEach(o => o.classList.remove("on")); menuOpen = false; }
+
+/* ---------------- sim ---------------- */
+function simUpdate(dt) {
+  if (!run || run.over || run.paused || menuOpen) return;
+  const S = stg();
+  const dday = dt / DAYLEN * run.speed;
+  run.day += dday;
+
+  const pm = prodMult();
+  let fw = 0, ww = 0, sw = 0, gw = 0;
+  run.grid.forEach(b => {
+    if (!b) return; const d = BUILD[b.id];
+    if (d.food) fw += d.food * b.l;
+    if (d.wood) ww += d.wood * b.l;
+    if (d.stone) sw += d.stone * b.l;
+    if (d.gold) gw += d.gold * b.l;
+    if (d.useWood) ww -= d.useWood * b.l;
+    if (d.eatFood) fw -= d.eatFood * b.l;
+  });
+  run.res.food = clamp(run.res.food + (fw * pm - 0.35 * run.pop) * dday, 0, capFood());
+  run.res.wood = clamp(run.res.wood + ww * pm * dday, 0, capMat());
+  run.res.stone = clamp(run.res.stone + sw * pm * dday, 0, capMat());
+  run.res.gold += (gw * pm + run.pop * 0.15 * pm) * dday;
+
+  const cap = housingCap(), happy = happyVal();
+  if (run.pop < cap && run.res.food > 5 && happy > 45)
+    run.pop = Math.min(cap, run.pop + (0.4 + run.pop * 0.022) * dday * Math.max(0.4, happy / 70));
+  if (run.res.food <= 0 && fw * pm < 0.35 * run.pop) {
+    run.pop -= 0.5 * dday;
+    if (run.day - run.starveLogDay > 25) { run.starveLogDay = run.day; logMsg("msg_starve", {}, "bad"); }
+  }
+  if (run.pop > cap) run.pop = Math.max(cap, run.pop - 0.5 * dday);
+  run.pen = Math.max(0, run.pen - 2 * dday);
+
+  if (run.raid) {
+    run.raid.t += dday;
+    if (run.raid.t >= run.raid.dur) resolveRaid();
+  } else {
+    run.nextRaid -= dday;
+    if (run.nextRaid <= 0) spawnRaid();
+  }
+
+  if (run.pop < 1) { run.pop = 0; failGame(); return; }
+  checkWin();
+
+  saveAcc += dt;
+  if (saveAcc > 4) { saveAcc = 0; autosave(false); }
+}
+function autosave(flashChip) {
+  if (!run || run.over) return;
+  meta.run = JSON.parse(JSON.stringify(run));
+  saveMeta();
+  $("#btn-continue").style.display = "";
+  if (flashChip) {
+    const c = $("#savechip");
+    c.style.opacity = 1;
+    setTimeout(() => { c.style.opacity = 0; }, 1100);
+  }
+}
+
+/* ---------------- screens ---------------- */
+function show(name) {
+  screen = name;
+  $$(".screen").forEach(s => s.classList.toggle("on", s.id === name));
+  fit();
+  requestAnimationFrame(fit);
+}
+function toTitle() { closeOverlays(); show("screen-title"); }
+function startStage(si) {
+  run = newRun(si); buildSel = null; selIdx = -1; fx = { floats: [], parts: [], flash: 0 };
+  meta.run = null; autosave(true);
+  show("screen-game");
+  renderBuildList(); renderObj(); renderSel(); renderLog(); updateHUD();
+}
+function continueGame() {
+  if (!meta.run) return;
+  run = meta.run;
+  if (!Array.isArray(run.grid) || run.grid.length !== NCELL) { meta.run = null; return; }
+  buildSel = null; selIdx = -1; fx = { floats: [], parts: [], flash: 0 };
+  show("screen-game");
+  renderBuildList(); renderObj(); renderSel(); renderLog(); updateHUD();
+}
+
+/* ---------------- DOM render ---------------- */
+function renderBuildList() {
+  const el = $("#build-list"); el.innerHTML = "";
+  BIDS.forEach(id => {
+    if (id === "hall") return;
+    const D = BUILD[id], c = costOf(id, 1);
+    const d = document.createElement("div");
+    d.className = "bitem" + (buildSel === id ? " sel" : "") + (canAfford(c) ? "" : " noaf");
+    d.dataset.building = id;
+    d.innerHTML = '<div class="r1"><span class="em">' + D.em + '</span><span>' + bName(id) + '</span></div>' +
+      '<div class="r2">' + costText(c) + (D.wk ? ' · 👤' + D.wk : "") + (D.def ? " · 🛡" + D.def : "") + "</div>";
+    d.addEventListener("click", () => {
+      SND.sfx("click");
+      buildSel = (buildSel === id) ? null : id;
+      renderBuildList();
+    });
+    el.appendChild(d);
+  });
+}
+function renderObj() {
+  const el = $("#obj-list"); el.innerHTML = "";
+  stg().conds.forEach(c => {
+    const p = objProgress(c), done = p[0] >= p[1];
+    const d = document.createElement("div");
+    d.className = "obj" + (done ? " done" : "");
+    d.innerHTML = '<span class="ck">' + (done ? "✔" : "○") + "</span><span>" + objText(c) +
+      ' <span class="pg">(' + fmt(p[0]) + "/" + fmt(p[1]) + ")</span></span>";
+    el.appendChild(d);
+  });
+}
+function renderRaidBox() {
+  const el = $("#raid-body"); const S = stg(); let h = "";
+  if (run.raid) {
+    const left = Math.max(0, Math.ceil(run.raid.dur - run.raid.t));
+    const d = Math.round(curDef());
+    const good = d >= run.raid.atk;
+    h = '<div class="big">' + tr("raid_march", { n: left }) + (run.raid.boss ? " ☠" : "") + "</div>" +
+      '<div class="sub">' + tr("raid_power", { a: fmt(run.raid.atk), d: fmt(d) }) + "<br>" +
+      '<span class="' + (good ? "good" : "bad") + '">' + tr(good ? "raid_win_o" : "raid_lose_o") + "</span></div>";
+  } else if (!run.over) {
+    const left = Math.max(0, Math.ceil(run.nextRaid));
+    const boss = raidIsBoss(), a = raidPow(boss), d = Math.round(curDef());
+    const good = d >= a;
+    h = '<div class="big">' + tr(boss ? "raid_boss_in" : "raid_in", { n: left }) + "</div>" +
+      '<div class="sub">' + tr("raid_power", { a: fmt(a), d: fmt(d) }) + "<br>" +
+      '<span class="' + (good ? "good" : "bad") + '">' + tr(good ? "raid_win_o" : "raid_lose_o") + "</span></div>";
+  } else h = '<div class="sub">' + tr("raid_none") + "</div>";
+  h += '<div class="sub" style="margin-top:5px">' + tr("raid_count", { s: run.raidSurvived, b: run.bossesKilled }) + "</div>";
+  el.innerHTML = h;
+}
+function renderSel() {
+  const el = $("#sel-body"); const b = selIdx >= 0 ? run.grid[selIdx] : null;
+  if (!b) { el.innerHTML = '<div class="sub" style="font-size:11px;color:#7d8aa3;white-space:pre-line">' + tr("info_none") + "</div>"; return; }
+  const D = BUILD[b.id], pm = prodMult(), eff = workEff();
+  const lines = [];
+  const L = b.l;
+  if (D.food) lines.push(tr("out_food", { v: (D.food * L * pm).toFixed(1) }));
+  if (D.wood) lines.push(tr("out_wood", { v: (D.wood * L * pm).toFixed(1) }));
+  if (D.stone) lines.push(tr("out_stone", { v: (D.stone * L * pm).toFixed(1) }));
+  if (D.gold) lines.push(tr("out_gold", { v: (D.gold * L * pm).toFixed(1) }));
+  if (D.housing) lines.push(tr("out_housing", { v: D.housing * L }));
+  if (D.happy) lines.push(tr("out_happy", { v: "+" + D.happy * L }));
+  if (D.def) lines.push(tr("out_def", { v: "+" + D.def * L }));
+  if (D.eatFood) lines.push(tr("out_eat", { v: (D.eatFood * L).toFixed(1) }));
+  if (D.useWood) lines.push(tr("out_use", { v: (D.useWood * L).toFixed(1) }));
+  if (D.wk) lines.push(tr("need_workers", { v: D.wk * L }) + (eff < 0.99 ? " ⚠" : ""));
+  const maxL = Math.min(D.maxL, b.id === "hall" ? D.maxL : hallLvl());
+  const nextC = L < D.maxL ? costOf(b.id, L + 1) : null;
+  const canUp = nextC && L < maxL && canAfford(nextC);
+  let h = '<div class="nm">' + D.em + " " + bName(b.id) + ' <span style="color:#9fb0cc;font-size:11px">' +
+    tr("lvl_lbl", { n: L }) + (L >= D.maxL ? " " + tr("max_lbl") : "") + "</span></div>" +
+    '<div class="ds">' + tr("b_" + b.id + "_d") + "</div>";
+  lines.forEach(t => { h += '<div class="ln">' + t + "</div>"; });
+  if (nextC) h += '<div class="ln" style="color:#d9a441">' + tr("up_lbl") + ": " + costText(nextC) +
+    (L >= maxL && b.id !== "hall" ? " <span style=\"color:#ff8f70\">🏰Lv" + (hallLvl() + 1) + "</span>" : "") +
+    (b.id === "hall" && L < D.maxL ? " <span style=\"color:#8fe08f\">🔓+" + tilesForLvl(L + 1) + "</span>" : "") + "</div>";
+  if (b.id !== "hall" && L < D.maxL) {
+    h += '<button class="btn mini" id="btn-up"' + (canUp ? "" : " disabled") + ">" + tr("btn_upgrade") + "</button>";
+    h += '<button class="btn mini danger" id="btn-dem">' + tr("btn_demolish") + "</button>";
+  } else if (b.id !== "hall") {
+    h += '<button class="btn mini danger" id="btn-dem">' + tr("btn_demolish") + "</button>";
+  } else if (L < D.maxL) {
+    h += '<button class="btn mini" id="btn-up"' + (canAfford(nextC) ? "" : " disabled") + ">" + tr("btn_upgrade") + "</button>";
+  }
+  el.innerHTML = h;
+  const bu = $("#btn-up"), bd = $("#btn-dem");
+  if (bu) bu.addEventListener("click", () => { SND.sfx("click"); tryUpgrade(); renderRaidBox(); });
+  if (bd) bd.addEventListener("click", () => { SND.sfx("click"); tryDemolish(); });
+}
+function updateHUD() {
+  const h = happyVal();
+  $("#hud-stage").textContent = tr("s" + run.si + "_n");
+  $("#hud-day").textContent = tr("day_lbl", { n: Math.floor(run.day) + 1 });
+  const nf = netFood();
+  setChip("#chip-gold", run.res.gold, null, false);
+  setChip("#chip-food", run.res.food, capFood(), nf < 0 && run.res.food < 60);
+  setChip("#chip-wood", run.res.wood, capMat(), false);
+  setChip("#chip-stone", run.res.stone, capMat(), false);
+  setChip("#chip-pop", run.pop, housingCap(), false);
+  $("#chip-happy").querySelector("b").textContent = Math.round(h);
+  $("#chip-def").querySelector("b").textContent = fmt(curDef());
+  updateBuildAvailability();
+  renderRaidBox(); renderObj();
+}
+function updateBuildAvailability() {
+  $$("#build-list .bitem").forEach(el => {
+    const id = el.dataset.building;
+    el.classList.toggle("noaf", !canAfford(costOf(id, 1)));
+  });
+}
+function setChip(sel, v, cap, warn) {
+  const el = $(sel);
+  el.querySelector("b").textContent = fmt(v);
+  const c = el.querySelector(".cap");
+  if (c) c.textContent = cap ? "/" + fmt(cap) : "";
+  el.classList.toggle("warn", !!warn);
+}
+
+/* ---------------- canvas ---------------- */
+const cv = $("#cv"), ctx = cv.getContext("2d");
+let LW = 580, LH = 494, RS = 1, TW = 76, TH = 38, OX = 0, OY = 0, appScale = 1;
+function fit() {
+  const iw = window.innerWidth, ih = window.innerHeight;
+  const app = $("#app");
+  if (ih > iw) {
+    // portrait: rotate the whole app 90deg so phones in either orientation just work
+    appScale = Math.min(iw / 540, ih / 960);
+    app.style.transform = "translate(-50%,-50%) rotate(90deg) scale(" + appScale + ")";
+  } else {
+    appScale = Math.min(iw / 960, ih / 540);
+    app.style.transform = "translate(-50%,-50%) scale(" + appScale + ")";
+  }
+  const w = cv.clientWidth, hgt = cv.clientHeight;
+  if (!w || !hgt) return;
+  LW = w; LH = hgt;
+  RS = appScale * (window.devicePixelRatio || 1);
+  cv.width = Math.round(w * RS); cv.height = Math.round(hgt * RS);
+  OX = LW / 2 - ((COLS - 1) - (ROWS - 1)) * TW / 4;
+  OY = LH / 2 - 118;
+}
+window.addEventListener("resize", fit);
+window.addEventListener("orientationchange", () => setTimeout(fit, 120));
+function tilePos(x, y) { return { sx: OX + (x - y) * TW / 2, sy: OY + (x + y) * TH / 2 }; }
+function gatePos() { const t = tilePos(COLS - 1, ROWS - 1); return { x: t.sx, y: t.sy + TH * 0.9 }; }
+function pickTile(px, py) {
+  const a = (px - OX) / (TW / 2), b = (py - OY) / (TH / 2);
+  const x = Math.round((a + b) / 2), y = Math.round((b - a) / 2);
+  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return -1;
+  return y * COLS + x;
+}
+
+/* --- drawing --- */
+let tNow = 0;
+function draw(dtReal) {
+  ctx.setTransform(RS, 0, 0, RS, 0, 0);
+  ctx.clearRect(0, 0, LW, LH);
+  const ph = run.day % 1;
+  const light = 0.5 + 0.5 * Math.sin(ph * Math.PI * 2 - Math.PI / 2);
+
+  /* sky */
+  const sky = ctx.createLinearGradient(0, 0, 0, LH);
+  const top = mixc("#2f4a7a", "#8fc0e8", light), bot = mixc("#243250", "#d9e8f2", light);
+  sky.addColorStop(0, top); sky.addColorStop(1, bot);
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, LW, LH);
+  if (light < 0.4) { // stars
+    ctx.fillStyle = "rgba(255,255,255," + (0.4 - light) * 1.8 + ")";
+    for (let i = 0; i < 26; i++) {
+      const sx = (i * 197 + 41) % LW, sy = (i * 89 + 13) % (LH * 0.4);
+      ctx.fillRect(sx, sy, 1.6, 1.6);
+    }
+  }
+  /* sun / moon */
+  const cel = light > 0.45;
+  const cf = cel ? (ph - 0.15) / 0.4 : ((ph < 0.15 ? ph + 1 : ph) - 0.6) / 0.55;
+  if (cf > -0.05 && cf < 1.05) {
+    const cx = LW * cf, cy = 70 - Math.sin(clamp(cf, 0, 1) * Math.PI) * 46;
+    ctx.beginPath(); ctx.arc(cx, cy, cel ? 14 : 10, 0, 7);
+    ctx.fillStyle = cel ? "rgba(255,224,130,.95)" : "rgba(226,232,244,.9)";
+    ctx.fill();
+  }
+  /* mountains */
+  drawRidge(OY - 96, 26, "#3c4a63", 7);
+  drawRidge(OY - 66, 20, "#33405a", 11);
+  /* ground */
+  const g2 = ctx.createLinearGradient(0, OY - 50, 0, LH);
+  g2.addColorStop(0, mixc("#3e4a3a", "#7ba35c", light));
+  g2.addColorStop(1, mixc("#2c3327", "#54753f", light));
+  ctx.fillStyle = g2; ctx.fillRect(0, OY - 50, LW, LH - OY + 50);
+  /* trees */
+  drawTree(28, OY - 30, light); drawTree(LW - 34, OY - 12, light); drawTree(LW - 66, OY - 40, light);
+
+  /* road to gate */
+  const G = gatePos();
+  ctx.strokeStyle = "#8a6c48"; ctx.lineWidth = 13;
+  ctx.beginPath(); ctx.moveTo(LW + 10, LH - 12); ctx.quadraticCurveTo(LW * 0.75, LH - 8, G.x + 6, G.y); ctx.stroke();
+  ctx.strokeStyle = "#6e5638"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(LW + 10, LH - 14); ctx.quadraticCurveTo(LW * 0.75, LH - 10, G.x + 6, G.y); ctx.stroke();
+  drawGate(G.x, G.y);
+
+  /* tiles */
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const t = tilePos(x, y), idx = y * COLS + x;
+    const lock = !cellOpen(idx);
+    ctx.fillStyle = diamondFill(x, y, idx);
+    diamond(x, y); ctx.fill();
+    if (lock) {
+      ctx.fillStyle = "rgba(22,24,32,.52)"; diamond(x, y); ctx.fill();
+      ctx.font = "10px 'Segoe UI Emoji'"; ctx.textAlign = "center";
+      ctx.globalAlpha = 0.8; ctx.fillText("🔒", t.sx, t.sy + 4); ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = "rgba(20,26,18,.5)"; ctx.lineWidth = 1; ctx.stroke();
+    if (buildSel && !run.grid[idx] && !lock) {
+      const pulse = 0.25 + 0.2 * Math.sin(tNow * 4);
+      ctx.strokeStyle = "rgba(217,164,65," + pulse + ")"; ctx.lineWidth = 2;
+      diamond(x, y, 3); ctx.stroke();
+    }
+  }
+  /* selected tile marker */
+  if (selIdx >= 0) {
+    const sx = selIdx % COLS, sy = (selIdx / COLS) | 0;
+    ctx.strokeStyle = "#e7c66b"; ctx.lineWidth = 2.5;
+    diamond(sx, sy, 2); ctx.stroke();
+    const t = tilePos(sx, sy);
+    ctx.fillStyle = "#e7c66b";
+    const bob = Math.sin(tNow * 5) * 3;
+    ctx.beginPath();
+    ctx.moveTo(t.sx - 6, t.sy - 46 + bob); ctx.lineTo(t.sx + 6, t.sy - 46 + bob); ctx.lineTo(t.sx, t.sy - 38 + bob);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* buildings sorted */
+  const order = [];
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (run.grid[y * COLS + x]) order.push([x, y]);
+  }
+  order.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
+  order.forEach(([x, y]) => {
+    const b = run.grid[y * COLS + x], t = tilePos(x, y);
+    drawBuilding(b, t.sx, t.sy, light);
+  });
+
+  /* raid bandits */
+  if (run.raid) drawBandits();
+
+  /* particles / floats */
+  fx.parts = fx.parts.filter(p => (p.t -= dtReal) > 0);
+  fx.parts.forEach(p => {
+    p.x += p.vx * dtReal; p.y += p.vy * dtReal; p.vy += 60 * dtReal;
+    ctx.globalAlpha = clamp(p.t / 0.6, 0, 1);
+    ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+  });
+  ctx.globalAlpha = 1;
+  fx.floats = fx.floats.filter(f => (f.t -= dtReal) > 0);
+  fx.floats.forEach(f => {
+    f.y -= 26 * dtReal;
+    ctx.globalAlpha = clamp(f.t, 0, 1);
+    ctx.font = "bold 14px 'Segoe UI'";
+    ctx.fillStyle = f.c; ctx.textAlign = "center";
+    ctx.fillText(f.s, f.x, f.y);
+    ctx.globalAlpha = 1;
+  });
+
+  /* night tint */
+  const na = (1 - light) * 0.5;
+  if (na > 0.02) { ctx.fillStyle = "rgba(14,20,50," + na + ")"; ctx.fillRect(0, 0, LW, LH); }
+  if (fx.flash > 0) {
+    fx.flash -= dtReal * 2;
+    ctx.fillStyle = "rgba(255,120,60," + Math.max(0, fx.flash) * 0.5 + ")";
+    ctx.fillRect(0, 0, LW, LH);
+  }
+}
+function diamondFill(x, y, idx) {
+  const occ = run.grid[idx];
+  const shade = ((x * 7 + y * 13) % 3);
+  const ph = run.day % 1, light = 0.5 + 0.5 * Math.sin(ph * Math.PI * 2 - Math.PI / 2);
+  const dayC = occ ? ["#8f9a6b", "#88935f", "#93a071"][shade] : ["#96b06b", "#8ea963", "#9cb772"][shade];
+  const nightC = occ ? ["#43495f", "#404658", "#454c62"][shade] : ["#41506b", "#3d4c66", "#44536e"][shade];
+  return mixc(nightC, dayC, light);
+}
+function diamond(x, y, grow) {
+  const t = tilePos(x, y), g = grow || 0;
+  ctx.beginPath();
+  ctx.moveTo(t.sx, t.sy - TH / 2 - 1 - g);
+  ctx.lineTo(t.sx + TW / 2 + g, t.sy);
+  ctx.lineTo(t.sx, t.sy + TH / 2 + 1 + g);
+  ctx.lineTo(t.sx - TW / 2 - g, t.sy);
+  ctx.closePath();
+}
+function mixc(c1, c2, t) {
+  const p = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const a = p(c1), b = p(c2);
+  return "rgb(" + a.map((v, i) => Math.round(lerp(v, b[i], clamp(t, 0, 1)))).join(",") + ")";
+}
+function drawRidge(baseY, amp, col, seed) {
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-10, baseY + 60);
+  for (let x = -10; x <= LW + 10; x += 14) {
+    const y = baseY + Math.sin(x * 0.035 + seed) * amp * 0.6 + Math.sin(x * 0.013 + seed * 3) * amp;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(LW + 10, baseY + 120); ctx.closePath(); ctx.fill();
+}
+function drawTree(x, y, light) {
+  ctx.fillStyle = mixc("#232b33", "#6b4a2c", light);
+  ctx.fillRect(x - 2, y - 12, 4, 14);
+  ctx.fillStyle = mixc("#1f3325", "#4d7a3a", light);
+  ctx.beginPath(); ctx.arc(x, y - 20, 11, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(x - 7, y - 13, 8, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + 7, y - 13, 8, 0, 7); ctx.fill();
+}
+function drawGate(x, y) {
+  ctx.fillStyle = "#7a7f8a";
+  ctx.fillRect(x - 18, y - 26, 8, 26); ctx.fillRect(x + 10, y - 26, 8, 26);
+  ctx.fillRect(x - 18, y - 30, 6, 5); ctx.fillRect(x - 10 + 6, y - 30, 6, 5);
+  ctx.fillStyle = "#4a3a28";
+  ctx.fillRect(x - 9, y - 22, 18, 22);
+  ctx.fillStyle = "#c25b40";
+  ctx.fillRect(x - 17, y - 36, 3, 8); ctx.fillRect(x + 15, y - 36, 3, 8);
+}
+function shadowE(x, y, w) {
+  ctx.fillStyle = "rgba(10,12,18,.35)";
+  ctx.beginPath(); ctx.ellipse(x, y + 2, w, w * 0.42, 0, 0, 7); ctx.fill();
+}
+function pips(x, y, n) {
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = "#f2c14b";
+    ctx.beginPath(); ctx.arc(x - (n - 1) * 4 + i * 8, y, 2.2, 0, 7); ctx.fill();
+  }
+}
+function drawBuilding(b, x, y, light) {
+  const L = b.l, id = b.id;
+  shadowE(x, y + TH / 4, TW * 0.36);
+  const wallC = mixc("#55516a", "#e0cba0", light);
+  const woodC = mixc("#392c2b", "#a86e3d", light);
+  const roofC = mixc("#2b263d", "#8c4534", light);
+  const stoneC = mixc("#424962", "#b3b8c2", light);
+  const trimC = mixc("#9b7840", "#f0d27c", light);
+  const windowC = mixc("#685342", "#ffe29a", light);
+  const s = 1 + (L - 1) * 0.14;
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const plinth = ctx.createLinearGradient(0, -3, 0, 9);
+  plinth.addColorStop(0, mixc("#62677a", "#e7d8b7", light));
+  plinth.addColorStop(1, mixc("#343849", "#96815b", light));
+  ctx.fillStyle = plinth;
+  ctx.beginPath(); ctx.ellipse(0, 4, 25, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(240,210,124,.65)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(0, 3, 23, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+  switch (id) {
+    case "hall": {
+      ctx.fillStyle = stoneC; ctx.fillRect(-22, -34, 44, 36);
+      ctx.fillStyle = mixc("#2c2f42", "#7e5836", light);
+      ctx.beginPath(); ctx.moveTo(-26, -32); ctx.lineTo(0, -50); ctx.lineTo(26, -32); ctx.closePath(); ctx.fill();
+      if (L >= 3) { ctx.fillStyle = stoneC; ctx.fillRect(18, -44, 10, 46); ctx.fillRect(-28, -44, 10, 46);
+        ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(17,-42); ctx.lineTo(23,-54); ctx.lineTo(29,-42); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-29,-42); ctx.lineTo(-23,-54); ctx.lineTo(-17,-42); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "#4a3a28"; ctx.fillRect(-5, -12, 10, 14);
+      ctx.fillStyle = "#2c2230"; ctx.fillRect(-15, -26, 6, 7); ctx.fillRect(9, -26, 6, 7);
+      ctx.strokeStyle = "#d9d9d9"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, -50); ctx.lineTo(0, -62); ctx.stroke();
+      const wv = Math.sin(tNow * 6) * 2;
+      ctx.fillStyle = "#b03a2e";
+      ctx.beginPath(); ctx.moveTo(0, -62); ctx.lineTo(14 + wv, -58); ctx.lineTo(0, -54); ctx.closePath(); ctx.fill();
+      break;
+    }
+    case "house": {
+      ctx.fillStyle = wallC; ctx.fillRect(-13, -20, 26, 22);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-16, -18); ctx.lineTo(0, -32); ctx.lineTo(16, -18); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#2c2230"; ctx.fillRect(-7, -11, 6, 8);
+      if (L >= 2) ctx.fillRect(3, -11, 6, 8);
+      if (L >= 3) { ctx.fillStyle = wallC; ctx.fillRect(-9, -30, 18, 10);
+        ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-11,-29); ctx.lineTo(0,-37); ctx.lineTo(11,-29); ctx.closePath(); ctx.fill(); }
+      break;
+    }
+    case "farm": {
+      ctx.fillStyle = mixc("#4a3f22", "#b8963f", light); ctx.fillRect(-20, -10, 40, 18);
+      ctx.strokeStyle = mixc("#3a4c2c", "#7c9a4a", light); ctx.lineWidth = 2;
+      for (let i = 0; i < 4 + L; i++) {
+        const wx = -16 + i * (32 / (3 + L)), swy = Math.sin(tNow * 3 + i * 1.7) * 2.2;
+        ctx.beginPath(); ctx.moveTo(wx, 6); ctx.lineTo(wx + swy, -8); ctx.stroke();
+      }
+      ctx.fillStyle = woodC; ctx.fillRect(14, -20, 8, 12);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(12, -18); ctx.lineTo(18, -26); ctx.lineTo(24, -18); ctx.closePath(); ctx.fill();
+      break;
+    }
+    case "lumber": {
+      ctx.fillStyle = woodC; ctx.fillRect(-16, -18, 20, 20);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-19, -16); ctx.lineTo(-6, -28); ctx.lineTo(7, -16); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = mixc("#2f2118", "#7a5a3a", light);
+      for (let i = 0; i < 2 + L; i++) { ctx.beginPath(); ctx.arc(12, -2 - i * 5, 4, 0, 7); ctx.fill(); }
+      ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(4, -4); ctx.lineTo(12, -18); ctx.stroke();
+      break;
+    }
+    case "quarry": {
+      ctx.fillStyle = mixc("#2b3040", "#6b7078", light);
+      ctx.beginPath(); ctx.ellipse(0, 0, 22, 11, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = mixc("#383e52", "#8d929c", light);
+      ctx.fillRect(-12, -8, 8, 6); ctx.fillRect(-2, -12 - L, 9, 7); ctx.fillRect(8, -6, 7, 6);
+      ctx.strokeStyle = "#d0d0d0"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(14, 4); ctx.lineTo(20, -12); ctx.stroke();
+      break;
+    }
+    case "market": {
+      ctx.fillStyle = woodC; ctx.fillRect(-16, -8, 32, 10);
+      ctx.fillStyle = "#c0392b";
+      for (let i = 0; i < 4 + (L > 1 ? 2 : 0); i++) { ctx.fillRect(-18 + i * 8, -20, 8, 10); }
+      ctx.fillStyle = "#ecdfc8";
+      for (let i = 0; i < 4 + (L > 1 ? 2 : 0); i++) { if (i % 2) ctx.fillRect(-18 + i * 8, -20, 8, 10); }
+      ctx.fillStyle = "#f2c14b";
+      ctx.beginPath(); ctx.arc(-6, -10, 3, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(4, -10, 3, 0, 7); ctx.fill();
+      break;
+    }
+    case "smith": {
+      ctx.fillStyle = stoneC; ctx.fillRect(-14, -16, 26, 18);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-17, -14); ctx.lineTo(-1, -26); ctx.lineTo(15, -14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = mixc("#2a2333", "#5a5f6e", light); ctx.fillRect(6, -32, 5, 14);
+      const fl = 0.6 + 0.4 * Math.sin(tNow * 9);
+      ctx.fillStyle = "rgba(255,120,40," + fl + ")";
+      ctx.fillRect(-8, -10, 7, 8);
+      if (Math.random() < 0.06) fx.parts.push({ x: x + 8, y: y - 30, vx: rnd(-4, 6), vy: rnd(-14, -6), t: 1.2, c: "rgba(180,180,190,.5)" });
+      break;
+    }
+    case "wall": {
+      ctx.fillStyle = stoneC; ctx.fillRect(-24, -16, 48, 18);
+      ctx.fillStyle = mixc("#3a3f52", "#878d9b", light);
+      for (let i = 0; i < 6; i++) ctx.fillRect(-24 + i * 8, -21 - (L >= 2 ? 3 : 0), 5, 6 + (L >= 2 ? 3 : 0));
+      if (L >= 3) { ctx.fillStyle = stoneC; ctx.fillRect(-27, -26, 8, 28); ctx.fillRect(19, -26, 8, 28); }
+      break;
+    }
+    case "tower": {
+      ctx.fillStyle = stoneC; ctx.fillRect(-9, -52, 18, 54);
+      ctx.fillStyle = mixc("#3a3f52", "#82889a", light);
+      for (let i = 0; i < 3; i++) ctx.fillRect(-11 + i * 8, -58, 5, 7);
+      ctx.fillStyle = "#2c2230"; ctx.fillRect(-2, -44, 4, 8);
+      ctx.strokeStyle = "#d9d9d9"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(8, -56); ctx.lineTo(8, -64); ctx.stroke();
+      const wv = Math.sin(tNow * 6) * 2;
+      ctx.fillStyle = "#3a5fa0";
+      ctx.beginPath(); ctx.moveTo(8, -64); ctx.lineTo(18 + wv, -61); ctx.lineTo(8, -58); ctx.closePath(); ctx.fill();
+      break;
+    }
+    case "barracks": {
+      ctx.fillStyle = woodC; ctx.fillRect(-24, -16, 48, 18);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-27, -14); ctx.lineTo(0, -28); ctx.lineTo(27, -14); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(14 + i * 4, 0); ctx.lineTo(14 + i * 4, -16); ctx.stroke();
+        ctx.fillStyle = "#c8c8c8"; ctx.beginPath(); ctx.moveTo(12 + i * 4, -14); ctx.lineTo(14 + i * 4, -20); ctx.lineTo(16 + i * 4, -14); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "#b03a2e"; ctx.fillRect(-18, -12, 10, 14);
+      if (L >= 2) { ctx.fillStyle = "#b03a2e"; ctx.fillRect(-4, -12, 10, 14); }
+      break;
+    }
+    case "well": {
+      ctx.fillStyle = stoneC; ctx.fillRect(-8, -8, 16, 10);
+      ctx.fillStyle = woodC; ctx.fillRect(-10, -22, 3, 14); ctx.fillRect(7, -22, 3, 14);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-13, -20); ctx.lineTo(0, -29); ctx.lineTo(13, -20); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#c8c8c8"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(0, -12); ctx.stroke();
+      break;
+    }
+    case "cathedral": {
+      ctx.fillStyle = mixc("#4a4d66", "#d8d2c2", light);
+      ctx.fillRect(-18, -30, 30, 32);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(-21, -28); ctx.lineTo(-3, -44); ctx.lineTo(15, -28); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = mixc("#4a4d66", "#e6e0d0", light);
+      ctx.fillRect(12, -46, 12, 48);
+      ctx.fillStyle = roofC; ctx.beginPath(); ctx.moveTo(10, -44); ctx.lineTo(18, -60); ctx.lineTo(26, -44); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#f2c14b"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(18, -60); ctx.lineTo(18, -67); ctx.moveTo(15, -64); ctx.lineTo(21, -64); ctx.stroke();
+      ctx.fillStyle = "#5a6b8a";
+      ctx.beginPath(); ctx.arc(-6, -20, 5, 0, 7); ctx.fill();
+      if (L >= 2) { ctx.fillStyle = "#2c2230"; ctx.fillRect(-13, -14, 5, 12); ctx.fillRect(2, -14, 5, 12); }
+      break;
+    }
+  }
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = trimC;
+  ctx.fillStyle = trimC;
+  ctx.lineWidth = 1.2;
+  switch (id) {
+    case "hall":
+      ctx.strokeRect(-20, -32, 40, 31);
+      ctx.beginPath(); ctx.moveTo(-20, -31); ctx.lineTo(20, -31); ctx.stroke();
+      ctx.strokeRect(-16, -25, 8, 8); ctx.strokeRect(8, -25, 8, 8);
+      ctx.fillStyle = windowC; ctx.fillRect(-14, -23, 4, 4); ctx.fillRect(10, -23, 4, 4);
+      ctx.strokeRect(-6, -13, 12, 15);
+      ctx.beginPath(); ctx.moveTo(-5, -12); ctx.quadraticCurveTo(0, -18, 5, -12); ctx.stroke();
+      break;
+    case "house":
+      ctx.strokeRect(-12, -19, 24, 20);
+      ctx.strokeRect(-9, -15, 7, 7); ctx.strokeRect(2, -15, 7, 7);
+      ctx.fillStyle = windowC; ctx.fillRect(-7, -13, 3, 3); ctx.fillRect(4, -13, 3, 3);
+      ctx.strokeRect(-2, -8, 6, 10);
+      ctx.beginPath(); ctx.moveTo(-14, -18); ctx.lineTo(0, -31); ctx.lineTo(14, -18); ctx.stroke();
+      break;
+    case "farm":
+      ctx.strokeStyle = "rgba(244,220,150,.8)";
+      ctx.beginPath(); ctx.moveTo(-20, 7); ctx.lineTo(20, 7); ctx.stroke();
+      for (let i = 0; i < 5; i++) {
+        const fx = -18 + i * 9;
+        ctx.beginPath(); ctx.moveTo(fx, 7); ctx.lineTo(fx, 12); ctx.stroke();
+      }
+      ctx.fillStyle = "#f4d479";
+      ctx.beginPath(); ctx.arc(18, -22, 2.2, 0, Math.PI * 2); ctx.fill();
+      break;
+    case "lumber":
+      ctx.strokeStyle = "rgba(240,210,124,.8)";
+      ctx.strokeRect(-14, -16, 16, 17);
+      ctx.beginPath(); ctx.moveTo(-13, -12); ctx.lineTo(1, -12); ctx.moveTo(-13, -5); ctx.lineTo(1, -5); ctx.stroke();
+      ctx.fillStyle = "#e7bf6b";
+      ctx.beginPath(); ctx.arc(12, -3, 2, 0, Math.PI * 2); ctx.fill();
+      break;
+    case "quarry":
+      ctx.strokeStyle = "rgba(230,235,244,.8)";
+      ctx.beginPath(); ctx.moveTo(-12, -7); ctx.lineTo(-8, -2); ctx.lineTo(-4, -7);
+      ctx.moveTo(-1, -11); ctx.lineTo(3, -5); ctx.lineTo(7, -11);
+      ctx.moveTo(9, -5); ctx.lineTo(12, -1); ctx.lineTo(15, -5); ctx.stroke();
+      ctx.fillStyle = "#d8c37a";
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(4, -7); ctx.lineTo(2, -3); ctx.lineTo(-2, -6); ctx.closePath(); ctx.fill();
+      break;
+    case "market":
+      for (let i = 0; i < 5; i++) {
+        const cx = -16 + i * 8;
+        ctx.beginPath(); ctx.arc(cx + 4, -10, 2.4, 0, Math.PI); ctx.fill();
+      }
+      ctx.strokeStyle = "rgba(255,230,174,.85)";
+      ctx.beginPath(); ctx.moveTo(-16, -8); ctx.lineTo(-16, 1); ctx.moveTo(16, -8); ctx.lineTo(16, 1); ctx.stroke();
+      ctx.fillStyle = "#f3d37d";
+      ctx.fillRect(-13, -6, 5, 4); ctx.fillRect(7, -6, 5, 4);
+      break;
+    case "smith":
+      ctx.strokeStyle = "rgba(242,213,139,.9)";
+      ctx.strokeRect(-12, -14, 22, 15);
+      ctx.fillStyle = windowC; ctx.fillRect(-7, -9, 5, 7);
+      ctx.fillStyle = "#d0d5df";
+      ctx.fillRect(-1, -5, 8, 2); ctx.fillRect(1, -8, 5, 3);
+      ctx.strokeStyle = "#d0d5df";
+      ctx.beginPath(); ctx.moveTo(5, -7); ctx.lineTo(9, -13); ctx.stroke();
+      break;
+    case "wall":
+      ctx.strokeStyle = "rgba(48,53,68,.75)";
+      for (let row = 0; row < 2; row++) {
+        ctx.beginPath();
+        ctx.moveTo(-22 + (row ? 4 : 0), -11 + row * 7);
+        ctx.lineTo(22, -11 + row * 7);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = trimC;
+      ctx.beginPath(); ctx.moveTo(-22, -19); ctx.lineTo(22, -19); ctx.stroke();
+      break;
+    case "tower":
+      ctx.strokeRect(-5, -42, 10, 8);
+      ctx.fillStyle = windowC; ctx.fillRect(-2, -40, 4, 4);
+      ctx.strokeRect(-5, -25, 10, 8);
+      ctx.fillStyle = windowC; ctx.fillRect(-2, -23, 4, 4);
+      ctx.strokeStyle = trimC;
+      ctx.beginPath(); ctx.moveTo(-9, -49); ctx.lineTo(9, -49); ctx.stroke();
+      break;
+    case "barracks":
+      ctx.strokeStyle = "rgba(240,210,124,.8)";
+      ctx.strokeRect(-20, -13, 13, 11);
+      ctx.fillStyle = windowC; ctx.fillRect(-17, -10, 7, 5);
+      ctx.fillStyle = "#e8c66d";
+      ctx.beginPath(); ctx.moveTo(-21, -16); ctx.lineTo(-15, -19); ctx.lineTo(-9, -16); ctx.lineTo(-15, -13); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#e8c66d";
+      ctx.beginPath(); ctx.moveTo(-15, -18); ctx.lineTo(-15, -13); ctx.stroke();
+      break;
+    case "well":
+      ctx.strokeStyle = trimC;
+      ctx.beginPath(); ctx.moveTo(-12, -20); ctx.lineTo(0, -29); ctx.lineTo(12, -20); ctx.stroke();
+      ctx.fillStyle = "#8bc7d1";
+      ctx.beginPath(); ctx.ellipse(0, -3, 6, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#f3d37d";
+      ctx.beginPath(); ctx.arc(0, -29, 2, 0, Math.PI * 2); ctx.fill();
+      break;
+    case "cathedral":
+      ctx.strokeStyle = trimC;
+      ctx.beginPath(); ctx.arc(-6, -20, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-6, -26); ctx.lineTo(-6, -14); ctx.moveTo(-12, -20); ctx.lineTo(0, -20); ctx.stroke();
+      ctx.fillStyle = "#78a8c9"; ctx.fillRect(-15, -13, 4, 7);
+      ctx.fillStyle = "#d7736d"; ctx.fillRect(5, -13, 4, 7);
+      ctx.strokeStyle = "rgba(255,241,190,.9)";
+      ctx.beginPath(); ctx.moveTo(18, -60); ctx.lineTo(18, -67); ctx.moveTo(15, -64); ctx.lineTo(21, -64); ctx.stroke();
+      break;
+  }
+  ctx.restore();
+  if (L > 1) pips(x, y - TH / 2 - 6 - (id === "hall" || id === "tower" || id === "cathedral" ? 30 : 20), L);
+}
+function drawBandits() {
+  const G = gatePos(), pr = clamp(run.raid.t / run.raid.dur, 0, 1);
+  const sx0 = LW + 30, sy0 = LH - 14;
+  const n = clamp(Math.round(run.raid.atk / 45), 1, 6) + (run.raid.boss ? 1 : 0);
+  for (let i = 0; i < n; i++) {
+    const pi = clamp(pr * 1.15 - i * 0.045, 0, 1);
+    const bx = lerp(sx0, G.x - 26 - i * 9, pi), by = lerp(sy0, G.y + 4, pi) + Math.sin(tNow * 10 + i * 2) * 1.6;
+    const boss = run.raid.boss && i === 0;
+    drawBanditSprite(bx, by, boss ? 1.6 : 1, boss);
+  }
+}
+function drawBanditSprite(x, y, s, boss) {
+  shadowE(x, y, 8 * s);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = boss ? "#1c1a22" : "#43302c";
+  ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.lineTo(3, -14); ctx.lineTo(-3, -14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = boss ? "#2b2733" : "#5a4038";
+  ctx.beginPath(); ctx.arc(0, -17, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = "#ffd97a";
+  ctx.fillRect(-2, -18, 1.4, 1.4); ctx.fillRect(1, -18, 1.4, 1.4);
+  ctx.strokeStyle = "#7a5a3a"; ctx.lineWidth = 1.6;
+  const aw = Math.sin(tNow * 8) * 2;
+  ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(11, -12 - aw); ctx.stroke();
+  ctx.fillStyle = "#c8c8c8";
+  ctx.beginPath(); ctx.arc(11, -12 - aw, 2.6, 0, 7); ctx.fill();
+  if (boss) {
+    ctx.fillStyle = "#f2c14b";
+    ctx.beginPath();
+    ctx.moveTo(-5, -20); ctx.lineTo(-5, -25); ctx.lineTo(-2.5, -22); ctx.lineTo(0, -26); ctx.lineTo(2.5, -22); ctx.lineTo(5, -25); ctx.lineTo(5, -20);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+function addFloat(x, y, s, c) { fx.floats.push({ x, y, s, c, t: 1.6 }); }
+function spawnParts(x, y, c, n) {
+  for (let i = 0; i < n; i++)
+    fx.parts.push({ x, y, vx: rnd(-60, 60), vy: rnd(-90, -10), t: rnd(0.4, 0.8), c });
+}
+
+/* ---------------- input ---------------- */
+cv.addEventListener("pointerdown", e => {
+  if (!run || screen !== "screen-game") return;
+  const rect = cv.getBoundingClientRect();
+  let px, py;
+  if (window.innerHeight > window.innerWidth) {
+    // portrait: #app is rotated 90deg — undo the rotation for pointer coords
+    const s = rect.width / LH;
+    px = LW / 2 + (e.clientY - rect.top - rect.height / 2) / s;
+    py = LH / 2 - (e.clientX - rect.left - rect.width / 2) / s;
+  } else {
+    px = (e.clientX - rect.left) * (LW / rect.width);
+    py = (e.clientY - rect.top) * (LH / rect.height);
+  }
+  const idx = pickTile(px, py);
+  if (idx < 0) { selIdx = -1; renderSel(); return; }
+  if (buildSel && !run.grid[idx]) { tryBuild(idx); renderRaidBox(); return; }
+  selIdx = run.grid[idx] ? idx : -1;
+  SND.sfx("click");
+  renderSel();
+});
+
+/* buttons */
+function wire(id, fn) { const el = $(id); if (el) el.addEventListener("click", () => { SND.sfx("click"); fn(); }); }
+wire("#btn-play", () => {
+  const si = clamp(meta.unlocked, 0, STAGES.length - 1);
+  startStage(si);
+});
+wire("#btn-continue", continueGame);
+wire("#btn-stages", renderStages);
+wire("#btn-help", () => { $("#help-body").textContent = tr("h_body"); $("#ovl-help").classList.add("on"); });
+wire("#btn-stages-back", toTitle);
+wire("#btn-reset", () => { if (confirm(tr("reset_q"))) { try { localStorage.removeItem(SKEY); } catch (e) {} meta = { lang, sound: SND.on, unlocked: 0, rec: {}, run: null }; saveMeta(); refreshTitle(); } });
+$$("[data-close]").forEach(b => b.addEventListener("click", () => { SND.sfx("click"); $("#" + b.dataset.close).classList.remove("on"); }));
+
+wire("#btn-lang", cycleLang);
+wire("#btn-lang2", cycleLang);
+wire("#ovl-lang", cycleLang);
+function cycleLang() {
+  lang = lang === "ja" ? "en" : lang === "en" ? "zh" : "ja";
+  meta.lang = lang; saveMeta(); applyLang();
+}
+function soundToggle() { SND.setOn(!SND.on); refreshLangSound(); }
+wire("#btn-sound", soundToggle);
+wire("#btn-sound2", soundToggle);
+wire("#ovl-sound", soundToggle);
+
+/* speed / pause / menu */
+wire("#btn-pause", () => { if (run) { run.paused = !run.paused; refreshPause(); } });
+$$(".spd").forEach(b => b.addEventListener("click", () => {
+  SND.sfx("click");
+  if (run) { run.speed = +b.dataset.s; run.paused = false; refreshPause(); }
+}));
+function refreshPause() {
+  $("#btn-pause").textContent = run && run.paused ? "▶" : "❚❚";
+  $$(".spd").forEach(b => b.classList.toggle("on2", run && !run.paused && +b.dataset.s === run.speed));
+}
+wire("#btn-menu", () => { menuOpen = true; refreshLangSound(); $("#ovl-menu").classList.add("on"); });
+wire("#ovl-resume", () => { closeOverlays(); });
+wire("#ovl-help2", () => { $("#help-body").textContent = tr("h_body"); $("#ovl-help").classList.add("on"); });
+wire("#ovl-stages", () => { closeOverlays(); autosave(true); renderStages(); });
+wire("#ovl-exit", () => { autosave(true); meta.run = run && !run.over ? JSON.parse(JSON.stringify(run)) : meta.run; saveMeta(); toTitle(); refreshTitle(); });
+
+/* ---------------- stages screen ---------------- */
+function renderStages() {
+  show("screen-stages");
+  const g = $("#stages-grid"); g.innerHTML = "";
+  let total = 0;
+  STAGES.forEach((S, i) => {
+    const locked = i > meta.unlocked;
+    const rec = meta.rec[i];
+    if (rec) total += rec.stars;
+    const c = document.createElement("div");
+    c.className = "scard" + (locked ? " locked" : "");
+    c.innerHTML = '<div class="no">' + tr("stage_lbl", { n: i + 1 }) + "</div>" +
+      '<div class="nm">' + tr("s" + i + "_n") + "</div>" +
+      '<div class="ds">' + (locked ? tr("locked") : tr("s" + i + "_h")) + "</div>" +
+      '<div class="st">' + (rec ? "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars) : "☆☆☆") + "</div>" +
+      '<div class="bd">' + (rec ? tr("best_day", { d: rec.day }) : tr("no_record")) + "</div>";
+    if (!locked) c.addEventListener("click", () => { SND.sfx("click"); startStage(i); });
+    g.appendChild(c);
+  });
+  $("#star-total").textContent = total;
+}
+
+/* ---------------- title / lang apply ---------------- */
+function refreshTitle() {
+  $("#btn-continue").style.display = meta.run ? "" : "none";
+}
+function refreshLangSound() {
+  const ln = lang === "ja" ? "JA" : lang === "en" ? "EN" : "中文";
+  $("#btn-lang").textContent = tr("lang_label") + ": " + ln;
+  $("#btn-lang2").textContent = ln;
+  $("#ovl-lang").textContent = tr("lang_label") + ": " + ln;
+  const so = tr(SND.on ? "sound_on" : "sound_off");
+  $("#btn-sound").textContent = so;
+  $("#btn-sound2").textContent = SND.on ? "🔊" : "🔇";
+  $("#ovl-sound").textContent = so;
+}
+function applyLang() {
+  document.documentElement.lang = lang;
+  $$("[data-i18n]").forEach(el => { el.textContent = tr(el.dataset.i18n); });
+  refreshTitle(); refreshLangSound();
+  $("#help-body").textContent = tr("h_body");
+  if (screen === "screen-game" && run) { renderBuildList(); renderObj(); renderSel(); renderRaidBox(); renderLog(); updateHUD(); }
+  if (screen === "screen-stages") renderStages();
+  refreshPause();
+}
+
+/* ---------------- main loop ---------------- */
+let lastT = performance.now();
+function loop(t) {
+  const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+  tNow += dt;
+  if (screen === "screen-game" && run) {
+    simUpdate(dt);
+    draw(dt);
+    hudAcc += dt;
+    if (hudAcc > 0.12) { hudAcc = 0; updateHUD(); }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- boot ---------------- */
+loadMeta();
+applyLang();
+fit();
+refreshTitle();
+requestAnimationFrame(loop);
+if (meta.run) $("#btn-continue").style.display = "";
+
+</script>
+</body>
+</html>
